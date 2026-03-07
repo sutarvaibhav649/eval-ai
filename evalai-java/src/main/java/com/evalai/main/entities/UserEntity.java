@@ -47,31 +47,31 @@ public class UserEntity {
 	private String id;
 	
 	@Column(name = "user_name",length = 255,nullable = false)
-	private String nameString;
+	private String name;
 	
 	@Column(name = "user_email",length = 255,nullable = false,unique = true)
 	@Email(message = "Enter valid email")
-	private String emailString;
+	private String email;
 	
 	@Column(name = "user_password",nullable = false)
-	private String passwordString;
+	private String password;
 	
 	@Column(name = "user_role",nullable = false)
 	@Enumerated(EnumType.STRING)
 	private UserRole role;
 	
 	@Column(name = "user_department",nullable = false)
-	private String departmentString;
+	private String department;
 	
 	@Builder.Default
 	@Column(name = "is_active",nullable = false)
-	private Boolean isActiveBoolean = true;
+	private Boolean isActive = true;
 	
 	@Column(name = "created_at",nullable = false,updatable = false)
 	@CreationTimestamp
-	private LocalDateTime createAtDateTime;
+	private LocalDateTime createAt;
 	
 	@Column(name = "updated_at",nullable = false)
 	@UpdateTimestamp
-	private LocalDateTime updatedAtDateTime;
+	private LocalDateTime updatedAt;
 }
