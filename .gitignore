@@ -1,0 +1,7 @@
+.env
+*.env
+.env.*
+evalai-java/.env
+evalai-python/.env
+evalai-frontend/.env
+evalai-cpp/.env
