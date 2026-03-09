@@ -43,16 +43,16 @@ public class QuestionPaperEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	@Column(name = "question_paper_id")
-	private String idString;
+	private String id;
 	
 	@Column(name = "title",nullable = false)
-	private String titleString;
+	private String title;
 	
 	@Column(name = "set_label",nullable = false)
-	private String setLableString;
+	private String setLable;
 	
 	@Column(name = "file_path",nullable = false)
-	private String filePathString;
+	private String filePath;
 	
 	@Builder.Default
 	@Column(name = "status",nullable = false)
@@ -65,11 +65,11 @@ public class QuestionPaperEntity {
 	
 	@Column(name = "created_at",nullable = false)
 	@CreationTimestamp
-	private LocalDateTime createAtDateTime;
+	private LocalDateTime createAt;
 	
 	@Column(name = "updated_at",nullable = false)
 	@UpdateTimestamp
-	private LocalDateTime updatedAtDateTime;
+	private LocalDateTime updatedAt;
 
 	
 	@ManyToOne

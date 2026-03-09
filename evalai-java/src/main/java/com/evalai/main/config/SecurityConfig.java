@@ -52,6 +52,7 @@ public class SecurityConfig {
                 // 3. Define URL permissions
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll() //login and response endpoints should be public
+                .requestMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated() // Everything else needs a token
                 );
 
