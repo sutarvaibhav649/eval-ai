@@ -259,7 +259,12 @@ public class FacultyService {
      * @param facultyId ID of the faculty (from JWT) — for future filtering by subject
      * @return list of pending grievances
      */
-	public List<GrievanceEntity> allPendingGrievance(){
+	public List<GrievanceEntity> allPendingGrievance(String facultyId){
+		
+		//step-1: check faculty exists
+		UserEntity faculty = userRepository.findById(facultyId)
+					.orElseThrow(()->new RuntimeException("FACULTY_NOT_FOUND"));
+		
 		return grievanceRepository.findByStatus(GrievanceStatus.PENDING);
 	}
 	
@@ -285,7 +290,7 @@ public class FacultyService {
 	) {
 		// Step 1 — Fetch grievance
 		GrievanceEntity grievance = grievanceRepository.findById(grievanceId)
-				.orElseThrow(()-> new RuntimeException("GRIEVANCE NOT FOUND"));
+				.orElseThrow(()-> new RuntimeException("GRIEVANCE_NOT_FOUND"));
 		
 		// step-2: check faculty exists
 		UserEntity faculty = userRepository.findById(facultyId)

@@ -7,6 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.Id;
 
 import com.evalai.main.enums.UserRole;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,6 +54,7 @@ public class UserEntity {
 	@Email(message = "Enter valid email")
 	private String email;
 	
+	@JsonIgnore
 	@Column(name = "user_password",nullable = false)
 	private String password;
 	
