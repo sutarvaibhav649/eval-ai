@@ -9,5 +9,5 @@ import com.evalai.main.entities.QuestionPaperEntity;
 
 public interface QuestionRepository extends JpaRepository<QuestionEntity, String>{
 	List<QuestionEntity> findByQuestionPaper(QuestionPaperEntity questionPaper);
-	boolean existsByQuestionNumberAndQuestionPaper(String lable,QuestionPaperEntity questionPaper);
+	boolean existsByQuestionNumberAndQuestionPaper(Integer questionNumber,QuestionPaperEntity questionPaper);
 }
