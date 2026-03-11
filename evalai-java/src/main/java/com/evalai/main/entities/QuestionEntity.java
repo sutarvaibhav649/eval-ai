@@ -37,17 +37,17 @@ public class QuestionEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	@Column(name = "question_id")
-	private String idString;
+	private String id;
 	
 	@Column(name = "question_number",nullable = false)
-	private Integer questionNumberInteger;
+	private Integer questionNumber;
 	
 	@Column(name = "total_marks",nullable = false)
-	private Float totalMarksFloat;
+	private Float totalMarks;
 	
 	@Column(name = "created_at",nullable = false)
 	@CreationTimestamp
-	private LocalDateTime createdAtDateTime;
+	private LocalDateTime createdAt;
 	
 	@ManyToOne
 	@JoinColumn(name = "question_paper_id",nullable = false)

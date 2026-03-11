@@ -40,23 +40,23 @@ public class SubQuestionEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	@Column(name = "sub_question_id")
-	private String idString;
+	private String id;
 	
 	@Column(name = "sub_question_label",nullable = false)
-	private String subQuestionLabelString;
+	private String subQuestionLabel;
 	
 	@Column(columnDefinition = "TEXT",nullable = false)
 	private String questionText;
 	
 	@Column(name = "marks",nullable = false)
-	private Float marksFloat;
+	private Float marks;
 	
 	@Column(name = "embedding",columnDefinition = "vector(384)")
 	private float[] embedding;
 	
 	@Column(name = "created_at",nullable = false)
 	@CreationTimestamp
-	private LocalDateTime createdAtDateTime;
+	private LocalDateTime createdAt;
 	
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "question_id",nullable = false)

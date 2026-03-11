@@ -44,7 +44,7 @@ public class ModelAnswerEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	@Column(name = "model_answer_id")
-	private String idString;
+	private String id;
 	
 	@Column(name = "answer_text",columnDefinition = "TEXT",nullable = false)
 	private String answerText;
@@ -62,11 +62,11 @@ public class ModelAnswerEntity {
 	
 	@Column(name = "created_at",nullable = false, updatable = false)
 	@CreationTimestamp
-	private LocalDateTime createAtDateTime;
+	private LocalDateTime createAt;
 	
 	@Column(name = "updated_at",nullable = false)
 	@UpdateTimestamp
-	private LocalDateTime updatedAtDateTime;
+	private LocalDateTime updatedAt;
 	
 	/**
 	 * Relation between the user and model answer
