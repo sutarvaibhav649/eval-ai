@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll() //login and response endpoints should be public
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/faculty/**").hasRole("FACULTY")
+                .requestMatchers("/student/**").hasRole("STUDENT")
                 .anyRequest().authenticated() // Everything else needs a token
                 );
 

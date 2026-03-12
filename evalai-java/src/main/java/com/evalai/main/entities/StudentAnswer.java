@@ -46,19 +46,19 @@ public class StudentAnswer {
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	@Column(name = "student_answers_id")
-	private String idString;
+	private String id;
 	
 	/**
 	 * Raw extracted text directly from the answer sheet via OCR
 	 */
 	@Column(name = "extracted_text",columnDefinition = "TEXT",nullable = false)
-	private String extractedTextString;
+	private String extractedText;
 	
 	/**
 	 * Cleaned text from the extracted text with the help of model answer
 	 */
 	@Column(name = "cleaned_text",columnDefinition = "TEXT",nullable = true)
-	private String cleanedTextString;
+	private String cleanedText;
 	
 	
 	/**
@@ -73,7 +73,7 @@ public class StudentAnswer {
 	 */
 	@Builder.Default
 	@Column(name = "ocr_confidence")
-	private Float ocrConfidenceFloat = 0.0f;
+	private Float ocrConfidence = 0.0f;
 	
 	/**
 	 * Reason for the Failure of the OCR by the model
@@ -87,7 +87,7 @@ public class StudentAnswer {
 	 */
 	@Column(name = "created_at",nullable = false)
 	@CreationTimestamp
-	private LocalDateTime createdAtDateTime;
+	private LocalDateTime createdAt;
 	
 	/**
 	 * Relation between Answersheet and the StudentAnswers
