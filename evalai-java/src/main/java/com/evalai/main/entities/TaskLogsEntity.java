@@ -60,7 +60,6 @@ public class TaskLogsEntity {
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 
-    @UpdateTimestamp
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 

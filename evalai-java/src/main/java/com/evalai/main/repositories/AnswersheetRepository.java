@@ -12,9 +12,12 @@ import com.evalai.main.enums.EvaluationStatus;
 
 public interface AnswersheetRepository extends JpaRepository<AnswersheetEntity, String> {
 
-    List<AnswersheetEntity> findByExam(ExamEntity exam);
+	List<AnswersheetEntity> findByExam(ExamEntity exam);
 
-    List<AnswersheetEntity> findByEvaluationStatus(ExamEntity exam, EvaluationStatus status);
-    
+    // Fix — remove this broken method, it's a duplicate of the one below
+    // List<AnswersheetEntity> findByEvaluationStatus(ExamEntity exam, EvaluationStatus status);
+
     Optional<AnswersheetEntity> findByExamAndStudent(ExamEntity exam, UserEntity student);
+
+    List<AnswersheetEntity> findByExamAndEvaluationStatus(ExamEntity exam, EvaluationStatus status);
 }

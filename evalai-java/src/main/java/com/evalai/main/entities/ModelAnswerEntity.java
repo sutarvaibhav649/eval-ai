@@ -3,6 +3,7 @@ package com.evalai.main.entities;
 import java.util.List;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -14,6 +15,7 @@ import jakarta.persistence.Id;
 
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -26,6 +28,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.evalai.main.services.*;
 
 /**
  * The "Gold Standard" answer provided by faculty for a specific SubQuestion.
@@ -61,7 +64,9 @@ public class ModelAnswerEntity {
 	 *  Here the embedding are stored after the answer is uploaded
 	 *  this is array of floating point values
 	 */
-	@Column(name = "embedding",columnDefinition = "vector(384)")
+	@Convert(converter = VectorConverter.class)
+	@Column(name = "embedding", columnDefinition = "vector(384)")
+	@ColumnTransformer(write = "?::vector")
 	private float[] embedding;
 	
 	@Column(name = "created_at",nullable = false, updatable = false)
@@ -87,4 +92,5 @@ public class ModelAnswerEntity {
 	@OneToOne
 	@JoinColumn(name = "sub_question_id",nullable = false)
 	private SubQuestionEntity subQuestion;
+
 }

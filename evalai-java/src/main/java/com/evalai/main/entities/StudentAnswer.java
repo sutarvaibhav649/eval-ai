@@ -2,12 +2,14 @@ package com.evalai.main.entities;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.CreationTimestamp;
 import jakarta.persistence.Id;
 
 import com.evalai.main.enums.FailureReason;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -22,6 +24,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.evalai.main.services.*;
 
 
 /**
@@ -64,7 +67,9 @@ public class StudentAnswer {
 	/**
 	 * floating point values of the extracted text with 384 dimensions
 	 */
-	@Column(name = "embedding",columnDefinition = "vector(384)")
+	@Convert(converter = VectorConverter.class)
+	@Column(name = "embedding", columnDefinition = "vector(384)")
+	@ColumnTransformer(write = "?::vector")
 	private float[] embedding;
 	
 	/**
@@ -104,4 +109,5 @@ public class StudentAnswer {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "sub_question_id", nullable = false)
 	private SubQuestionEntity subQuestion;
+	
 }

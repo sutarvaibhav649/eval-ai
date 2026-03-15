@@ -2,10 +2,15 @@ package com.evalai.main.entities;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.CreationTimestamp;
+
+import com.evalai.main.services.VectorConverter;
+
 import jakarta.persistence.Id;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -51,7 +56,9 @@ public class SubQuestionEntity {
 	@Column(name = "marks",nullable = false)
 	private Float marks;
 	
-	@Column(name = "embedding",columnDefinition = "vector(384)")
+	@Convert(converter = VectorConverter.class)
+	@Column(name = "embedding", columnDefinition = "vector(384)")
+	@ColumnTransformer(write = "?::vector")
 	private float[] embedding;
 	
 	@Column(name = "created_at",nullable = false)

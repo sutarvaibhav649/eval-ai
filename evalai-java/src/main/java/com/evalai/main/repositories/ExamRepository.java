@@ -22,12 +22,8 @@ import com.evalai.main.entities.UserEntity;
  */
 public interface ExamRepository extends JpaRepository<ExamEntity, String> {
 
-    @Override
-    Optional<ExamEntity> findById(String id);
-
+ // Remove @Override — findById is already inherited from JpaRepository
     List<ExamEntity> findBySubject(SubjectEntity subject);
-
     List<ExamEntity> findByCreatedBy(UserEntity createdBy);
-
     boolean existsByTitleAndSubject_Id(String title, String subjectId);
 }

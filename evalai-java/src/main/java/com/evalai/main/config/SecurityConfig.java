@@ -55,6 +55,7 @@ public class SecurityConfig {
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/faculty/**").hasRole("FACULTY")
                 .requestMatchers("/student/**").hasRole("STUDENT")
+                .requestMatchers("/pipeline/callback").permitAll()
                 .anyRequest().authenticated() // Everything else needs a token
                 );
 
