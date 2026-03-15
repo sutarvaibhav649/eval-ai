@@ -28,4 +28,7 @@ celery_app.conf.update(
 
     # Result expiry — keep results for 24 hours
     result_expires=86400,
+
+    # Windows fix — use solo pool
+    worker_pool="solo",
 )

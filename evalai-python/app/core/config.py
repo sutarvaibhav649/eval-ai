@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     ocr_mode: str = "PADDLE"
     gemini_api_key: str = ""
 
+    # OpenRouter
+    openrouter_api_key: str = ""
+    openrouter_ocr_model: str = "meta-llama/llama-4-scout"
+
     # Upload path
     upload_base_path: str = "../upload"
 

@@ -6,7 +6,7 @@ class QuestionContext(BaseModel):
     sub_question_label: str
     question_number: int
     marks: float
-    model_answer_embeddings: List[float]
+    model_answer_embedding: List[float]
 
 class StudentContext(BaseModel):
     student_id: str
@@ -14,11 +14,12 @@ class StudentContext(BaseModel):
 
 class ExamContext(BaseModel):
     exam_id: str
-    exam_name:str
+    exam_name: str
     course_id: str
-    course_name:str
+    course_name: str
     subject_code: str
-    subject_name:str
+    subject_name: str        # ← add this
+    academic_year: str
     question_paper_id: str
     question_paper_set: str
 
