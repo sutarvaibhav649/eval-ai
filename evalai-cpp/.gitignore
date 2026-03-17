@@ -1,0 +1,14 @@
+generated/
+build/
+generated/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+.vs/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+.vs/
