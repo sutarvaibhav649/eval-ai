@@ -1,6 +1,7 @@
 generated/
 build/
 generated/
+target/
 *.exe
 *.obj
 *.pdb
