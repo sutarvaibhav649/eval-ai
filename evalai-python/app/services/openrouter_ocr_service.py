@@ -22,6 +22,9 @@ def extract_text_from_image_openrouter(image_path: str) -> Tuple[str, float]:
     """
     from openai import OpenAI
 
+    # Normalize Windows backslashes
+    image_path = os.path.normpath(image_path)
+
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found: {image_path}")
 
@@ -48,9 +51,9 @@ def extract_text_from_image_openrouter(image_path: str) -> Tuple[str, float]:
                     {
                         "type": "text",
                         "text": """Extract all handwritten and printed text from this exam answer sheet image exactly as written.
-Preserve the structure including question labels like Q.1, Q.2, 1a, 1b etc.
-Return only the extracted text with no commentary, explanation, or markdown formatting.
-Maintain original line breaks and paragraph structure."""
+                                Preserve the structure including question labels like Q.1, Q.2, 1a, 1b etc.
+                                Return only the extracted text with no commentary, explanation, or markdown formatting.
+                                Maintain original line breaks and paragraph structure."""
                     }
                 ]
             }

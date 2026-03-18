@@ -91,25 +91,30 @@ public class GrpcService {
     ) {
         ManagedChannel channel = null;
         try {
-            // Step 1 — Create gRPC channel
             channel = ManagedChannelBuilder
                     .forAddress(grpcHost, grpcPort)
                     .usePlaintext()
                     .build();
 
-            // Step 2 — Create blocking stub
             PreprocessingServiceGrpc.PreprocessingServiceBlockingStub stub =
                     PreprocessingServiceGrpc.newBlockingStub(channel);
 
-            // Step 3 — Build request
+            // Convert to absolute path — C++ needs absolute path
+            // ../upload relative to Java becomes D:\EvalAI\ upload absolute
+            String absoluteUploadPath = java.nio.file.Paths.get(uploadBasePath)
+                    .toAbsolutePath()
+                    .normalize()
+                    .toString();
+
+            logger.info("Sending absolute upload path to C++: {}", absoluteUploadPath);
+
             PreprocessRequest.Builder requestBuilder = PreprocessRequest.newBuilder()
                     .setTaskId(taskId)
                     .setExamId(answerSheet.getExam().getId())
                     .setStudentId(answerSheet.getStudent().getId())
                     .setAnswerSheetId(answerSheet.getId())
-                    .setOutputBasePath(uploadBasePath);
+                    .setOutputBasePath(absoluteUploadPath); // ← absolute path
 
-            // Add each raw page
             for (int i = 0; i < rawImagePaths.size(); i++) {
                 RawImagePage page = RawImagePage.newBuilder()
                         .setPageNumber(i + 1)
@@ -118,12 +123,10 @@ public class GrpcService {
                 requestBuilder.addPages(page);
             }
 
-            // Step 4 — Call C++ service
             PreprocessResponse response = stub.preprocessStudentImages(
                     requestBuilder.build()
             );
 
-            // Step 5 — Verify anonymization on page 1
             if (!response.getPagesList().isEmpty()) {
                 boolean anonymized = response.getPages(0).getAnonymized();
                 if (!anonymized) {
@@ -133,7 +136,6 @@ public class GrpcService {
                 }
             }
 
-            // Step 6 — Extract cleaned image paths
             List<String> cleanedPaths = response.getPagesList().stream()
                     .filter(p -> p.getStatus() == PageStatus.PAGE_STATUS_SUCCESS)
                     .map(CleanedImagePage::getCleanedPath)

@@ -253,7 +253,7 @@ public class PipelineService {
                 );
                 resultRepository.save(result);
 
-                totalMarks += answer.getAiMarks() != null ? answer.getAiMarks() : 0.0f;
+                totalMarks += result.getFinalMarks(); 
                 completedCount++;
 
             } else {
@@ -352,13 +352,27 @@ public class PipelineService {
             CallbackPayload.ExtractedAnswerPayload answer,
             StudentAnswer studentAnswer
     ) {
+    		System.out.println(answerSheet.getMarks());
         ResultEntity result = new ResultEntity();
         result.setAnswersheet(answerSheet);
         result.setStudent(answerSheet.getStudent());
         result.setSubQuestion(subQuestion);
         result.setStudentAnswer(studentAnswer);
-        result.setAiMarks(answer.getAiMarks());
-        result.setFinalMarks(answer.getAiMarks()); // final_marks = ai_marks initially
+        
+        
+        // Total Marks Logic
+        float aiNormalizedScore = answer.getAiMarks() != null ? answer.getAiMarks() : 0.0f;
+        float maxPossibleMarks = subQuestion.getMarks(); // Ensure this field in SubQuestion is correct
+        float calculatedMarks = aiNormalizedScore * maxPossibleMarks;
+        
+        float finalCalculatedMarks = Math.round(calculatedMarks * 100.0f) / 100.0f;
+        
+        result.setAiMarks(aiNormalizedScore);        // Store the raw 0.4
+        result.setFinalMarks(finalCalculatedMarks);  // Store the 4.0
+        
+        System.out.println("AI marks: "+answer.getAiMarks());
+        System.out.println("Total marks: "+finalCalculatedMarks);
+        
         result.setSimilarityScore(answer.getSimilarityScore());
         result.setTotalMarks(subQuestion.getMarks());
         result.setStatus(ResultStatus.COMPLETED);
