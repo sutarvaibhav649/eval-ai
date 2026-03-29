@@ -93,5 +93,22 @@ public class CallbackPayload {
         private Float similarityScore;
         @JsonProperty("ai_marks")
         private Float aiMarks;
+        @JsonProperty("feedback")
+        private FeedbackPayload feedback;
+        
+        @Getter @Setter
+        public static class FeedbackPayload {
+            @JsonProperty("strengths")
+            private String strengths;
+            @JsonProperty("weakness")
+            private String weakness;
+            @JsonProperty("suggestions")
+            private String suggestions;
+            @JsonProperty("overall_feedback")
+            private String overallFeedback;
+            @JsonProperty("key_concepts_missed")
+            private List<String> keyConceptsMissed;
+        }
     }
+    
 }

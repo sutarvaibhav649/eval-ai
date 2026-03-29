@@ -6,7 +6,7 @@ from app.services.scoring_service import cosine_similarity, calculate_marks
 from app.core.config import get_settings
 from app.core.logger import get_logger
 from typing import List
-
+from app.services.feedback_service import generate_feedback
 logger = get_logger(__name__)
 settings = get_settings()
 
@@ -125,6 +125,29 @@ def process_answer_sheet_sync(task_data: dict):
         )
         ai_marks = calculate_marks(similarity, question.marks)
 
+        logger.info(
+            f"Label '{label}' | similarity: {similarity:.3f} | "
+            f"ai_marks: {ai_marks}/{question.marks}"
+        )
+
+        # Step 6 — Generate feedback
+        feedback_data = None
+        try:
+            feedback_dict = generate_feedback(
+                question_text=question.question_text,
+                student_answer=segment_text,
+                model_answer=question.model_answer_text,
+                key_concepts=question.key_concepts,
+                ai_marks=ai_marks,
+                max_marks=question.marks,
+                sub_question_label=label
+            )
+            from app.schemas.ocr_schema import FeedbackData
+            feedback_data = FeedbackData(**feedback_dict)
+            logger.info(f"Feedback generated for '{label}'")
+        except Exception as e:
+            logger.error(f"Feedback generation failed for '{label}': {e}")
+
         extracted_answers.append(ExtractedAnswer(
             sub_question_id=question.sub_question_id,
             sub_question_label=label,
@@ -136,11 +159,11 @@ def process_answer_sheet_sync(task_data: dict):
             embedding=student_embedding,
             ocr_confidence=avg_confidence,
             similarity_score=similarity,
-            ai_marks=ai_marks
+            ai_marks=ai_marks,
+            feedback=feedback_data
         ))
-        completed_count += 1
 
-    # Step 6 — Determine overall status
+    # Step 7 — Determine overall status
     if failed_count == 0:
         overall_status = "COMPLETED"
     elif completed_count > 0:
@@ -148,7 +171,7 @@ def process_answer_sheet_sync(task_data: dict):
     else:
         overall_status = "FAILED"
 
-    # Step 7 — Build response and send callback
+    # Step 8 — Build response and send callback
     response = OcrResponse(
         task_id=request.task_id,
         context=request.context,

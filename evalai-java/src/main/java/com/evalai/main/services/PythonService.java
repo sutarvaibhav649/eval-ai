@@ -162,6 +162,11 @@ public class PythonService {
 	                q.put("question_number", question.getQuestionNumber());
 	                q.put("marks", subQuestion.getMarks());
 	                q.put("model_answer_embedding", embeddingList);
+	                q.put("model_answer_text", modelAnswer.getAnswerText());      
+	                q.put("question_text", subQuestion.getQuestionText());        
+	                q.put("key_concepts", modelAnswer.getKeyConcepts() != null    
+	                        ? modelAnswer.getKeyConcepts()
+	                        : new ArrayList<>());
 	                questions.add(q);
 	             
 

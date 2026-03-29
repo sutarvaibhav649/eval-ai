@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import com.evalai.main.dtos.response.CallbackPayload;
 import com.evalai.main.entities.AnswersheetEntity;
 import com.evalai.main.entities.ExamEntity;
+import com.evalai.main.entities.FeedbackEntity;
 import com.evalai.main.entities.GrievanceEntity;
 import com.evalai.main.entities.QuestionPaperEntity;
 import com.evalai.main.entities.ResultEntity;
@@ -14,6 +15,7 @@ import com.evalai.main.entities.SubQuestionEntity;
 import com.evalai.main.entities.TaskLogsEntity;
 import com.evalai.main.enums.EvaluationStatus;
 import com.evalai.main.enums.FailureReason;
+import com.evalai.main.enums.FeedbackGeneratedBy;
 import com.evalai.main.enums.GrievanceStatus;
 import com.evalai.main.enums.GrievanceType;
 import com.evalai.main.enums.OcrStatus;
@@ -63,6 +65,7 @@ public class PipelineService {
     private final GrievanceRepository grievanceRepository;
     private final ExamRepository examRepository;
     private final QuestionPaperRepository questionPaperRepository;
+    private final FeedbackRepository feedbackRepository;
     private final GrpcService grpcService;
     private final PythonService pythonService;
     
@@ -240,7 +243,6 @@ public class PipelineService {
                     ));
 
             if ("COMPLETED".equals(answer.getStatus())) {
-                // SUCCESS PATH
                 // Save StudentAnswer with embedding
                 StudentAnswer studentAnswer = buildStudentAnswer(
                         answerSheet, subQuestion, answer
@@ -251,9 +253,14 @@ public class PipelineService {
                 ResultEntity result = buildResult(
                         answerSheet, subQuestion, answer, studentAnswer
                 );
-                resultRepository.save(result);
+                ResultEntity savedResult = resultRepository.save(result);
 
-                totalMarks += result.getFinalMarks(); 
+                // Save feedback if available  ← ADD THIS BLOCK
+                if (answer.getFeedback() != null) {
+                    saveFeedback(savedResult, answerSheet, answer.getFeedback());
+                }
+
+                totalMarks += savedResult.getFinalMarks();  // ← use savedResult not result
                 completedCount++;
 
             } else {
@@ -352,31 +359,25 @@ public class PipelineService {
             CallbackPayload.ExtractedAnswerPayload answer,
             StudentAnswer studentAnswer
     ) {
-    		System.out.println(answerSheet.getMarks());
-        ResultEntity result = new ResultEntity();
+    	ResultEntity result = new ResultEntity();
         result.setAnswersheet(answerSheet);
         result.setStudent(answerSheet.getStudent());
         result.setSubQuestion(subQuestion);
         result.setStudentAnswer(studentAnswer);
         
+        // 1. Get the marks from the Python payload (ai_marks is the actual score, e.g., 5.2)
+        float aiMarks = answer.getAiMarks() != null ? answer.getAiMarks() : 0.0f;
         
-        // Total Marks Logic
-        float aiNormalizedScore = answer.getAiMarks() != null ? answer.getAiMarks() : 0.0f;
-        float maxPossibleMarks = subQuestion.getMarks(); // Ensure this field in SubQuestion is correct
-        float calculatedMarks = aiNormalizedScore * maxPossibleMarks;
+        // 2. Set both AI marks and Final marks (assuming they start as the same)
+        result.setAiMarks(aiMarks);
+        result.setFinalMarks(aiMarks); 
         
-        float finalCalculatedMarks = Math.round(calculatedMarks * 100.0f) / 100.0f;
-        
-        result.setAiMarks(aiNormalizedScore);        // Store the raw 0.4
-        result.setFinalMarks(finalCalculatedMarks);  // Store the 4.0
-        
-        System.out.println("AI marks: "+answer.getAiMarks());
-        System.out.println("Total marks: "+finalCalculatedMarks);
-        
+        // 3. Set metadata
         result.setSimilarityScore(answer.getSimilarityScore());
-        result.setTotalMarks(subQuestion.getMarks());
+        result.setTotalMarks(subQuestion.getMarks()); // The maximum possible marks
         result.setStatus(ResultStatus.COMPLETED);
         result.setIsOverriden(false);
+        
         return result;
     }
 
@@ -449,5 +450,37 @@ public class PipelineService {
                 .sorted(Comparator.comparing(File::getName))
                 .map(File::getAbsolutePath)
                 .collect(java.util.stream.Collectors.toList());
+    }
+    
+    
+    private void saveFeedback(
+            ResultEntity result,
+            AnswersheetEntity answerSheet,
+            CallbackPayload.ExtractedAnswerPayload.FeedbackPayload feedback
+    ) {
+        FeedbackEntity feedbackEntity = new FeedbackEntity();
+        feedbackEntity.setResult(result);
+        feedbackEntity.setAnswersheet(answerSheet);
+        feedbackEntity.setStrengths(
+            feedback.getStrengths() != null ? feedback.getStrengths() : ""
+        );
+        feedbackEntity.setWeakness(
+            feedback.getWeakness() != null ? feedback.getWeakness() : ""
+        );
+        feedbackEntity.setSuggestions(
+            feedback.getSuggestions() != null ? feedback.getSuggestions() : ""
+        );
+        feedbackEntity.setOverallFeedback(
+            feedback.getOverallFeedback() != null ? feedback.getOverallFeedback() : ""
+        );
+        feedbackEntity.setKeyConceptsMissed(
+            feedback.getKeyConceptsMissed() != null
+                ? feedback.getKeyConceptsMissed()
+                : new ArrayList<>()
+        );
+        feedbackEntity.setGeneratedBy(FeedbackGeneratedBy.GEMINI);
+        feedbackRepository.save(feedbackEntity);
+
+        logger.info("Feedback saved for result {}", result.getId());
     }
 }

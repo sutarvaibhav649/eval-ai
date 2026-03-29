@@ -7,10 +7,20 @@ class QuestionContext(BaseModel):
     question_number: int
     marks: float
     model_answer_embedding: List[float]
+    model_answer_text: str
+    question_text: str
+    key_concepts: List[str]
 
 class StudentContext(BaseModel):
     student_id: str
     answer_sheet_id: str
+
+class FeedbackData(BaseModel):
+    strengths: str = ""
+    weakness: str = ""
+    suggestions: str = ""
+    overall_feedback: str = ""
+    key_concepts_missed: List[str] = []
 
 class ExamContext(BaseModel):
     exam_id: str
@@ -18,7 +28,7 @@ class ExamContext(BaseModel):
     course_id: str
     course_name: str
     subject_code: str
-    subject_name: str        # ← add this
+    subject_name: str
     academic_year: str
     question_paper_id: str
     question_paper_set: str
@@ -43,6 +53,7 @@ class ExtractedAnswer(BaseModel):
     ocr_confidence: Optional[float] = None
     similarity_score: Optional[float] = None
     ai_marks: float = 0.0
+    feedback: Optional[FeedbackData] = None
 
 class OcrResponse(BaseModel):
     task_id: str
