@@ -94,7 +94,6 @@ public class GrievanceEntity {
 	@Column(name = "raised_at", nullable = false, updatable = false)
 	private LocalDateTime raisedAt;
 	
-	@UpdateTimestamp
 	@Column(name = "resolved_at")
 	private LocalDateTime resolvedAt;
 	

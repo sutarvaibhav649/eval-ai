@@ -103,6 +103,7 @@ public StudentResultResponseDTO getResult(String examId, String studentId) {
                 }).toList();
         
         responseDTO.setResult(subResult);
+        responseDTO.setTotalMarks(Float.valueOf(exam.getTotalMarks()));
         
         float obtainedMarks = (float)allResults.stream()
                 .mapToDouble(r -> r.getFinalMarks() != null ? r.getFinalMarks() : 0.0).sum();

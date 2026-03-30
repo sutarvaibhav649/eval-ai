@@ -3,6 +3,7 @@ package com.evalai.main.services;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -317,6 +318,7 @@ public class FacultyService {
         grievance.setReviewerComment(request.getReviewerComment());
         grievance.setStatus(request.getStatus());
         grievance.setReviewedBy(faculty);
+        grievance.setResolvedAt(LocalDateTime.now());
 
         return grievanceRepository.save(grievance);
 	}
