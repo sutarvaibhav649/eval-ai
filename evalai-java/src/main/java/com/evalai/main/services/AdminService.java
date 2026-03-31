@@ -10,6 +10,7 @@ import java.util.*;
 
 import javax.imageio.ImageIO;
 
+import org.apache.coyote.BadRequestException;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -76,12 +77,13 @@ public class AdminService {
      * @param request validated SubjectRequestDTO
      * @param adminId ID of the admin creating the subject (from JWT)
      * @return saved SubjectEntity
+     * @throws BadRequestException 
      */
-    public SubjectEntity createSubject(SubjectRequestDTO requestDTO, String admin) {
+    public SubjectEntity createSubject(SubjectRequestDTO requestDTO, String admin) throws BadRequestException {
 
         // step-1: check if the subject code already exists
         if (subjectRepository.existsByCode(requestDTO.getCode())) {
-            throw new RuntimeException("SUBJECT_CODE_EXISTS");
+            throw new BadRequestException("SUBJECT_CODE_EXISTS");
         }
 
         // step-2: set all the properties of Subject entity
@@ -105,16 +107,17 @@ public class AdminService {
      * @param request validated ExamRequestDTO
      * @param adminId ID of the admin creating the exam (from JWT)
      * @return saved ExamEntity
+     * @throws BadRequestException 
      */
-    public ExamEntity createExam(ExamRequestDTO requestDTO, String adminId) {
+    public ExamEntity createExam(ExamRequestDTO requestDTO, String adminId) throws BadRequestException {
 
         // step-1: Check if the subject already exists in the database
         SubjectEntity subject = subjectRepository.findById(requestDTO.getSubjectId())
-                .orElseThrow(() -> new RuntimeException("SUBJECT_NOT_FOUND"));
+                .orElseThrow(() -> new BadRequestException("SUBJECT_NOT_FOUND"));
 
         // step-2: verify that admin exists
         UserEntity admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("ADMIN_NOT_FOUND"));
+                .orElseThrow(() -> new BadRequestException("ADMIN_NOT_FOUND"));
 
         // step-3: check is there any exam already exists with same details
         if (examRepository.existsByTitleAndSubject_Id(requestDTO.getTitle(), requestDTO.getSubjectId())) {
@@ -162,15 +165,15 @@ public class AdminService {
     ) throws Exception {
         //step-1: validate exam exists
         ExamEntity exam = examRepository.findById(examId)
-                .orElseThrow(() -> new RuntimeException("EXAM_NOT_FOUND"));
+                .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
 
         // step-2: validate admin exists
         UserEntity admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("ADMIN_NOT_EXISTS"));
+                .orElseThrow(() -> new BadRequestException("ADMIN_NOT_EXISTS"));
 
         // step-3: validate file count matches student count
         if (files.size() != studentIds.size()) {
-            throw new RuntimeException("FILES_AND_STUDENT_COUNT_MISMATCH");
+            throw new BadRequestException("FILES_AND_STUDENT_COUNT_MISMATCH");
         }
 
         List<AnswersheetEntity> savedAnswersheets = new ArrayList<>();
@@ -183,7 +186,7 @@ public class AdminService {
 
             // step-5: verify is student exists
             UserEntity student = userRepository.findById(studentId)
-                    .orElseThrow(() -> new RuntimeException("STUDENT_NOT_EXITST_WITH_" + studentId));
+                    .orElseThrow(() -> new BadRequestException("STUDENT_NOT_EXITST_WITH_" + studentId));
 
             try {
                 // step-6: Build directory
@@ -241,10 +244,11 @@ public class AdminService {
      *
      * @param examId ID of the exam
      * @return list of AnswerSheetEntity with their current statuses
+     * @throws BadRequestException 
      */
-    public List<AnswersheetEntity> getEvaluationStatus(String examId) {
+    public List<AnswersheetEntity> getEvaluationStatus(String examId) throws BadRequestException {
         ExamEntity exam = examRepository.findById(examId)
-                .orElseThrow(() -> new RuntimeException("EXAM_NOT_FOUND"));
+                .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
         return answersheetRepository.findByExam(exam);
     }
 

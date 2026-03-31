@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+import org.apache.coyote.BadRequestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,17 +88,18 @@ public class PipelineService {
      *
      * @param examId exam to evaluate
      * @return number of answer sheets queued for processing
+     * @throws BadRequestException 
      */
-    public int startPipeline(String examId) {
+    public int startPipeline(String examId) throws BadRequestException {
 
         // Step 1 — Verify exam exists
         ExamEntity exam = examRepository.findById(examId)
-                .orElseThrow(() -> new RuntimeException("EXAM_NOT_FOUND"));
+                .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
 
         // Step 2 — Get question paper for this exam
         List<QuestionPaperEntity> papers = questionPaperRepository.findByExam(exam);
         if (papers.isEmpty()) {
-            throw new RuntimeException("NO_QUESTION_PAPER_FOUND");
+            throw new BadRequestException("NO_QUESTION_PAPER_FOUND");
         }
         // Use first available question paper
         QuestionPaperEntity questionPaper = papers.get(0);
@@ -107,7 +109,7 @@ public class PipelineService {
                 .findByExamAndEvaluationStatus(exam, EvaluationStatus.PENDING);
 
         if (pendingSheets.isEmpty()) {
-            throw new RuntimeException("NO_PENDING_SHEETS");
+            throw new BadRequestException("NO_PENDING_SHEETS");
         }
 
 
@@ -208,15 +210,16 @@ public class PipelineService {
      * All DB writes for one student happen in a single transaction.
      *
      * @param payload callback payload from Python matching OcrResponse schema
+     * @throws BadRequestException 
      */
     @Transactional
-    public void handleCallback(CallbackPayload payload) {
+    public void handleCallback(CallbackPayload payload) throws BadRequestException {
 
         // Step 1 — Find answer sheet by ID from payload
         String answerSheetId = payload.getStudent().getAnswerSheetId();
         AnswersheetEntity answerSheet = answerSheetRepository
                 .findById(answerSheetId)
-                .orElseThrow(() -> new RuntimeException(
+                .orElseThrow(() -> new BadRequestException(
                         "ANSWER_SHEET_NOT_FOUND: " + answerSheetId
                 ));
 

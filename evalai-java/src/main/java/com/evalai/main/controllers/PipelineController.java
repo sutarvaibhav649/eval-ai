@@ -3,6 +3,7 @@ package com.evalai.main.controllers;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.coyote.BadRequestException;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,12 +48,13 @@ public class PipelineController {
      * Requires ADMIN role.
      *
      * @return 200 OK with count of sheets queued
+	 * @throws BadRequestException 
      */
 	@PostMapping("/start")
     @PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<?> startPipeline(
             @Valid @RequestBody PipelineStartRequestDTO request
-    ) {
+    ) throws BadRequestException {
         try {
             int queued = pipelineService.startPipeline(request.getExamId());
 

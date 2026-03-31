@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
@@ -74,6 +75,7 @@ public class FacultyController {
      * @return 201 CREATED with question paper details
      *         404 NOT FOUND if exam not found
      *         409 CONFLICT if set label already exists for this exam
+	 * @throws BadRequestException 
      */
 	@PostMapping(value = "/question-paper", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
 	public ResponseEntity<?> createQuestionPaper(
@@ -82,7 +84,7 @@ public class FacultyController {
 		    @RequestParam("setLable") String setLable,
 			@RequestPart("file") MultipartFile file,
 			@RequestHeader("Authorization") String authHeader
-	){
+	) throws BadRequestException{
 		try {
 			String facultyId = jwtUtils.extractUserId(authHeader.substring(7));
 			
@@ -130,11 +132,12 @@ public class FacultyController {
      * @return 201 CREATED with question details
      *         404 NOT FOUND if question paper not found
      *         409 CONFLICT if question number already exists in this paper
+	 * @throws BadRequestException 
      */
 	@PostMapping("/questions")
 	public ResponseEntity<?> createQuestion(
 			@Valid @RequestBody QuestionRequestDTO requestDTO
-	){
+	) throws BadRequestException{
 		try {
 			QuestionEntity question = facultyService.createQuestion(requestDTO);
 			
@@ -167,11 +170,12 @@ public class FacultyController {
      * @return 201 CREATED with sub-question details
      *         404 NOT FOUND if question not found
      *         409 CONFLICT if label already exists under this question
+	 * @throws BadRequestException 
      */
 	@PostMapping("/sub-questions")
 	public ResponseEntity<?> createSubQuestion(
 			@Valid @RequestBody SubQuestionRequestDTO requestDTO
-	){
+	) throws BadRequestException{
 		try {
 			SubQuestionEntity saved = facultyService.createSubQuestion(requestDTO);
 			
@@ -210,12 +214,13 @@ public class FacultyController {
      * @return 201 CREATED with model answer details
      *         404 NOT FOUND if sub-question not found
      *         409 CONFLICT if model answer already exists for this sub-question
+	 * @throws BadRequestException 
      */
 	@PostMapping("/model-answers")
 	public ResponseEntity<?> createModelAnswer(
 			@Valid @RequestBody ModelAnswerRequestDTO requestDTO,
 			@RequestHeader("Authorization") String authHeader
-	){
+	) throws BadRequestException{
 		try {
 			String facultyId = jwtUtils.extractUserId(authHeader.substring(7));
 			ModelAnswerEntity modelAnswer = facultyService.createModelAnswer(requestDTO, facultyId);
@@ -303,13 +308,14 @@ public class FacultyController {
      * @return 200 OK with updated grievance details
      *         404 NOT FOUND if grievance not found
      *         400 BAD REQUEST if grievance already closed
+	 * @throws BadRequestException 
      */
     @PutMapping("/grievances/{grievanceId}/review")
     public ResponseEntity<?> reviewGrievance(
             @PathVariable String grievanceId,
             @Valid @RequestBody GrievanceReviewRequest request,
             @RequestHeader("Authorization") String authHeader
-    ) {
+    ) throws BadRequestException {
         try {
             String facultyId = jwtUtils.extractUserId(authHeader.substring(7));
 

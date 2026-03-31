@@ -1,23 +1,49 @@
 package com.evalai.main.utils;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.evalai.main.dtos.ApiResponse;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	@ExceptionHandler(exception = Exception.class)
-	public ResponseEntity<?> handleGeneric(Exception exception){
-		return ResponseEntity
-                .status(500)
-                .body("Internal Server Error: " + exception.getMessage());
-	}
-	
 	@ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<?> handleRuntime(RuntimeException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleRuntime(RuntimeException ex) {
         return ResponseEntity
-                .status(400)
-                .body("Bad Request: " + ex.getMessage());
-    }	
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(null)
+                        .timestamp(System.currentTimeMillis())
+                        .build());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Object>> handleGeneric(Exception ex) {
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message("Internal server error")
+                        .data(null)
+                        .timestamp(System.currentTimeMillis())
+                        .build());
+    }
+    
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(null)
+                        .timestamp(System.currentTimeMillis())
+                        .build());
+    }
+    
 }

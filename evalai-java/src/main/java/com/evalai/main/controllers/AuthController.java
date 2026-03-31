@@ -1,5 +1,6 @@
 package com.evalai.main.controllers;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,9 +59,10 @@ public class AuthController {
      * password, department, role
      * @return 201 CREATED with user details on success 409 CONFLICT if email
      * already registered 500 INTERNAL_SERVER_ERROR on unexpected failure
+     * @throws BadRequestException 
      */
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequestDTO registerRequestDTO) {
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequestDTO registerRequestDTO) throws BadRequestException {
         try {
             // Step 1 — Default role to STUDENT if not provided
             if (registerRequestDTO.getRole() == null) {

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -79,24 +80,25 @@ public class FacultyService {
      * @param facultyId ID of the faculty submitting (from JWT)
      * @param file      uploaded question paper PDF
      * @return saved QuestionPaperEntity
+	 * @throws BadRequestException 
      */
 	public QuestionPaperEntity createQuestionPaper(
 			QuestionPaperRequestDTO requestDTO,
 			String facultyId,
 			MultipartFile file
-	) {
+	) throws BadRequestException {
 		
 		//step-1: verify exam exists
 		ExamEntity exam = examRepository.findById(requestDTO.getExamId())
-					.orElseThrow(()-> new RuntimeException("EXAM_NOT_FOUND"));
+					.orElseThrow(()-> new BadRequestException("EXAM_NOT_FOUND"));
 		
 		//step-2: verify faculty exists
 		UserEntity faculty = userRepository.findById(facultyId)
-					.orElseThrow(()->new RuntimeException("FACULTY_NOT_FOUND"));
+					.orElseThrow(()->new BadRequestException("FACULTY_NOT_FOUND"));
 		
 		//step-3: check duplicate set label exists for same exam
 		if (questionPaperRepository.existsByExamAndSetLable(exam, requestDTO.getSetLable())) {
-			throw new RuntimeException("SET_LABEL_EXISTS");
+			throw new BadRequestException("SET_LABEL_EXISTS");
 		}
 		
 		try {
@@ -118,7 +120,7 @@ public class FacultyService {
 			return questionPaperRepository.save(questionPaper);
 			
 		} catch (Exception e) {
-			throw new RuntimeException("FILE_SAVE_FAILED: " + e.getMessage()); 
+			throw new BadRequestException("FILE_SAVE_FAILED: " + e.getMessage()); 
 		}
 	}
 	
@@ -131,18 +133,19 @@ public class FacultyService {
      *
      * @param request validated QuestionRequestDTO
      * @return saved QuestionEntity
+	 * @throws BadRequestException 
      */
 	public QuestionEntity createQuestion(
 			QuestionRequestDTO requestDTO
-	) {
+	) throws BadRequestException {
 		
 		//step-1: verify question paper exists
 		QuestionPaperEntity questionPaper = questionPaperRepository.findById(requestDTO.getQuestionPaperId())
-				.orElseThrow(()-> new RuntimeException("QUESTION_PAPER_NOT_FOUND"));
+				.orElseThrow(()-> new BadRequestException("QUESTION_PAPER_NOT_FOUND"));
 		
 		// Step 2 — Check duplicate question number in same paper
 		if (questionRepository.existsByQuestionNumberAndQuestionPaper(requestDTO.getQuestionNumber(), questionPaper)) {
-			throw new RuntimeException("QUESTION_NUMBER_ALREADY_EXISTS");
+			throw new BadRequestException("QUESTION_NUMBER_ALREADY_EXISTS");
 		}	
 		
 		//step-3 create and save question
@@ -162,18 +165,19 @@ public class FacultyService {
      *
      * @param request validated SubQuestionRequestDTO
      * @return saved SubQuestionEntity
+	 * @throws BadRequestException 
      */
 	public SubQuestionEntity createSubQuestion(
 			SubQuestionRequestDTO requestDTO
-	) {
+	) throws BadRequestException {
 		
 		//step-1: verify the question exists
 		QuestionEntity question = questionRepository.findById(requestDTO.getQuestionId())
-					.orElseThrow(()->new RuntimeException("QUESTION_NOT_FOUND"));
+					.orElseThrow(()->new BadRequestException("QUESTION_NOT_FOUND"));
 		
 		//step-3: verify if the duplicate sub question exists
 		if (subQuestionRepository.existsBySubQuestionLabelAndQuestion(requestDTO.getSubQuestionLabel(),question)) {
-			throw new RuntimeException("LABLE_ALREADY_EXISTS");
+			throw new BadRequestException("LABLE_ALREADY_EXISTS");
 		}
 		
 		// Step 3 — Create and save sub-question
@@ -204,23 +208,24 @@ public class FacultyService {
      * @param request   validated ModelAnswerRequestDTO
      * @param facultyId ID of submitting faculty (from JWT)
      * @return saved ModelAnswerEntity with embedding
+	 * @throws BadRequestException 
      */
 	public ModelAnswerEntity createModelAnswer(
 			ModelAnswerRequestDTO requestDTO,
 			String facultyId
-	) {
+	) throws BadRequestException {
 		
 		//step-1: verify sub question exists
 		SubQuestionEntity subQuestion = subQuestionRepository.findById(requestDTO.getSubQuestionId())
-					.orElseThrow(()-> new RuntimeException("SUBQUESTION_NOT_FOUND"));
+					.orElseThrow(()-> new BadRequestException("SUBQUESTION_NOT_FOUND"));
 		
 		//step-2: verify faculty exists
 		UserEntity faculty = userRepository.findById(facultyId)
-						.orElseThrow(()-> new RuntimeException("FACULTY_NOT_FOUND"));
+						.orElseThrow(()-> new BadRequestException("FACULTY_NOT_FOUND"));
 		
 		//step-3: check if the model answer already exists for this sub question
 		if (modelAnswerRepository.existsBySubQuestion(subQuestion)) {
-			throw new RuntimeException("MODEL_ANSWER_EXISTS");
+			throw new BadRequestException("MODEL_ANSWER_EXISTS");
 		}
 		
 		//step-4: create the model answer entity
@@ -259,12 +264,13 @@ public class FacultyService {
      *
      * @param facultyId ID of the faculty (from JWT) — for future filtering by subject
      * @return list of pending grievances
+	 * @throws BadRequestException 
      */
-	public List<GrievanceEntity> allPendingGrievance(String facultyId){
+	public List<GrievanceEntity> allPendingGrievance(String facultyId) throws BadRequestException{
 		
 		//step-1: check faculty exists
 		UserEntity faculty = userRepository.findById(facultyId)
-					.orElseThrow(()->new RuntimeException("FACULTY_NOT_FOUND"));
+					.orElseThrow(()->new BadRequestException("FACULTY_NOT_FOUND"));
 		
 		return grievanceRepository.findByStatus(GrievanceStatus.PENDING);
 	}
@@ -282,20 +288,21 @@ public class FacultyService {
      * @param request     review decision with awarded_marks and comment
      * @param facultyId   ID of the reviewing faculty (from JWT)
      * @return updated GrievanceEntity
+	 * @throws BadRequestException 
      */
 	@Transactional
 	public GrievanceEntity grievanceReview(
 			String grievanceId,
 			GrievanceReviewRequest request,
 			String facultyId
-	) {
+	) throws BadRequestException {
 		// Step 1 — Fetch grievance
 		GrievanceEntity grievance = grievanceRepository.findById(grievanceId)
-				.orElseThrow(()-> new RuntimeException("GRIEVANCE_NOT_FOUND"));
+				.orElseThrow(()-> new BadRequestException("GRIEVANCE_NOT_FOUND"));
 		
 		// step-2: check faculty exists
 		UserEntity faculty = userRepository.findById(facultyId)
-					.orElseThrow(()-> new RuntimeException("FACULTY_NOT_EXISTS"));
+					.orElseThrow(()-> new BadRequestException("FACULTY_NOT_EXISTS"));
 		
 		// Step 3 — Only PENDING or UNDER_REVIEW grievances can be reviewed
 		if (grievance.getStatus() == GrievanceStatus.RESOLVED 

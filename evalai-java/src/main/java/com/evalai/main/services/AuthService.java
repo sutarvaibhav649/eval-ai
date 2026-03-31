@@ -1,5 +1,6 @@
 package com.evalai.main.services;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -32,12 +33,13 @@ public class AuthService {
      * name, email, password, department, and role
      * @return the saved UserEntity with hashed password if registration is
      * successful
+     * @throws BadRequestException 
      * @throws RuntimeException if a user with the same email already exists in
      * the database
      */
-    public UserEntity registerUser(UserEntity userEntity) {
+    public UserEntity registerUser(UserEntity userEntity) throws BadRequestException {
         if (userRepository.findByEmail(userEntity.getEmail()).isPresent()) {
-            throw new RuntimeException("USER_ALREADY_EXISTS");
+            throw new BadRequestException("USER_ALREADY_EXISTS");
         }
         userEntity.setPassword(passwordEncoder.encode(userEntity.getPassword()));
         return userRepository.save(userEntity);

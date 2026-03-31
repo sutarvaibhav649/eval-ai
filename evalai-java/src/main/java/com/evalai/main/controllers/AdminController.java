@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -65,12 +66,13 @@ public class AdminController{
      * @param authHeader Bearer token from Authorization header
      * @return 201 CREATED with subject details
      *         409 CONFLICT if subject code already exists
+     * @throws BadRequestException 
      */
     @PostMapping("/subjects")
     public ResponseEntity<?> createSubject(
     		@Valid @RequestBody SubjectRequestDTO requestDTO,
     		@RequestHeader("Authorization") String authHeader
-    	){
+    	) throws BadRequestException{
     		try {
 			// extract admin id from access token
     			String adminId = jwtUtils.extractUserId(authHeader.substring(7));
@@ -219,11 +221,12 @@ public class AdminController{
      *
      * @param examId ID of the exam to check
      * @return 200 OK with list of student statuses
+     * @throws BadRequestException 
      */
     @GetMapping("/evaluation/status")
     public ResponseEntity<?> getEvaluationStatus(
             @RequestParam("examId") String examId
-    ) {
+    ) throws BadRequestException {
         try {
             List<AnswersheetEntity> sheets = adminService.getEvaluationStatus(examId);
 

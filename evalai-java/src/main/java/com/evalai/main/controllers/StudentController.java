@@ -2,6 +2,7 @@ package com.evalai.main.controllers;
 
 import java.util.List;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -71,12 +72,13 @@ public class StudentController {
      * @return 200 OK with full result breakdown per sub-question
      *         404 NOT FOUND if exam or answer sheet not found
      *         403 FORBIDDEN if evaluation not complete yet
+     * @throws BadRequestException 
      */
     @GetMapping("/results/{examId}")
     public ResponseEntity<?> getResults(
             @PathVariable String examId,
             @RequestHeader("Authorization") String authHeader
-    ) {
+    ) throws BadRequestException {
         try {
             // studentId always comes from JWT — never from request
             String studentId = jwtUtils.extractUserId(authHeader.substring(7));
@@ -103,12 +105,13 @@ public class StudentController {
      *         weaknesses, suggestions, and key concepts missed
      *         404 NOT FOUND if exam, answer sheet, or feedback not found
      *         403 FORBIDDEN if evaluation not complete yet
+     * @throws BadRequestException 
      */
     @GetMapping("/feedback/{examId}")
     public ResponseEntity<?> getFeedback(
             @PathVariable String examId,
             @RequestHeader("Authorization") String authHeader
-    ) {
+    ) throws BadRequestException {
         try {
             String studentId = jwtUtils.extractUserId(authHeader.substring(7));
 
@@ -139,12 +142,13 @@ public class StudentController {
      *         400 BAD REQUEST if deadline passed or grievance already exists
      *         403 FORBIDDEN if result doesn't belong to this student
      *         404 NOT FOUND if result not found
+     * @throws BadRequestException 
      */
     @PostMapping("/grievances")
     public ResponseEntity<?> raiseGrievance(
             @Valid @RequestBody GrievanceRequestDTO request,
             @RequestHeader("Authorization") String authHeader
-    ) {
+    ) throws BadRequestException {
         try {
             String studentId = jwtUtils.extractUserId(authHeader.substring(7));
 
@@ -188,11 +192,12 @@ public class StudentController {
      *         UNDER_REVIEW → faculty is reviewing
      *         RESOLVED → faculty awarded new marks
      *         REJECTED → faculty kept original marks
+     * @throws BadRequestException 
      */
     @GetMapping("/grievances")
     public ResponseEntity<?> getMyGrievances(
             @RequestHeader("Authorization") String authHeader
-    ) {
+    ) throws BadRequestException {
         try {
             String studentId = jwtUtils.extractUserId(authHeader.substring(7));
 

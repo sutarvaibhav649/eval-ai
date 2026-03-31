@@ -3,6 +3,7 @@ package com.evalai.main.services;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.stereotype.Service;
 
 import com.evalai.main.dtos.request.GrievanceRequestDTO;
@@ -63,17 +64,18 @@ public class StudentService {
      * @param examId    ID of the exam
      * @param studentId extracted from JWT — guaranteed to be the logged-in student
      * @return StudentResultResponseDTO with per-sub-question breakdown
+	 * @throws BadRequestException 
      */
-public StudentResultResponseDTO getResult(String examId, String studentId) {
+public StudentResultResponseDTO getResult(String examId, String studentId) throws BadRequestException {
         
         ExamEntity exam = examRepository.findById(examId)
-                    .orElseThrow(() -> new RuntimeException("EXAM_NOT_FOUND"));
+                    .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
         
         UserEntity student = userRepository.findById(studentId)
-                    .orElseThrow(() -> new RuntimeException("STUDENT_NOT_FOUND"));
+                    .orElseThrow(() -> new BadRequestException("STUDENT_NOT_FOUND"));
         
         AnswersheetEntity answersheet = answersheetRepository.findByExamAndStudent(exam, student)
-                            .orElseThrow(() -> new RuntimeException("ANSWER_SHEET_NOT_FOUND"));
+                            .orElseThrow(() -> new BadRequestException("ANSWER_SHEET_NOT_FOUND"));
         
         // Updated to match "RESULTS_NOT_READY" case in helper
         if (answersheet.getEvaluationStatus() != EvaluationStatus.COMPLETED &&
@@ -122,17 +124,18 @@ public StudentResultResponseDTO getResult(String examId, String studentId) {
      * @param examId    ID of the exam
      * @param studentId extracted from JWT
      * @return StudentFeedbackResponseDTO with per-sub-question feedback
+	 * @throws BadRequestException 
      */
-	public StudentFeedbackResponseDTO getFeedback(String examId, String studentId) {
+	public StudentFeedbackResponseDTO getFeedback(String examId, String studentId) throws BadRequestException {
 	    
 	    ExamEntity exam = examRepository.findById(examId)
-	                .orElseThrow(() -> new RuntimeException("EXAM_NOT_FOUND"));
+	                .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
 	    
 	    UserEntity student = userRepository.findById(studentId)
-	            .orElseThrow(() -> new RuntimeException("STUDENT_NOT_FOUND"));
+	            .orElseThrow(() -> new BadRequestException("STUDENT_NOT_FOUND"));
 	    
 	    AnswersheetEntity answersheet = answersheetRepository.findByExamAndStudent(exam, student)
-	                .orElseThrow(() -> new RuntimeException("ANSWER_SHEET_NOT_FOUND"));
+	                .orElseThrow(() -> new BadRequestException("ANSWER_SHEET_NOT_FOUND"));
 	    
 	    // Updated to match "ANSWERSHEET_NOT_READY" case in helper
 	    if (answersheet.getEvaluationStatus() != EvaluationStatus.COMPLETED &&
@@ -144,7 +147,7 @@ public StudentResultResponseDTO getResult(String examId, String studentId) {
 	    
 	    // Updated to match "FEEDBACK_NOT_AVAILABLE" case in helper
 	    if (allFeedbacks.isEmpty()) {
-	        throw new RuntimeException("FEEDBACK_NOT_AVAILABLE");
+	        throw new BadRequestException("FEEDBACK_NOT_AVAILABLE");
 	    }
 	    
 	    StudentFeedbackResponseDTO responseDTO = new StudentFeedbackResponseDTO();
@@ -182,16 +185,17 @@ public StudentResultResponseDTO getResult(String examId, String studentId) {
      * @param request   GrievanceRequestDTO with resultId, reason, requestedMarks
      * @param studentId extracted from JWT
      * @return saved GrievanceEntity
+	 * @throws BadRequestException 
      */
-	public GrievanceEntity raiseGrievance(GrievanceRequestDTO requestDTO, String studentId) {
+	public GrievanceEntity raiseGrievance(GrievanceRequestDTO requestDTO, String studentId) throws BadRequestException {
         
         UserEntity student = userRepository.findById(studentId)
-                .orElseThrow(() -> new RuntimeException("STUDENT_NOT_FOUND"));
+                .orElseThrow(() -> new BadRequestException("STUDENT_NOT_FOUND"));
         
         // Using RESULT_NOT_FOUND to be specific, though helper uses RESULTS_NOT_READY in your snippet
         // I recommend using "RESULT_NOT_FOUND" for findById failures
         ResultEntity result = resultRepository.findById(requestDTO.getResultId())
-                        .orElseThrow(() -> new RuntimeException("RESULT_NOT_FOUND"));
+                        .orElseThrow(() -> new BadRequestException("RESULT_NOT_FOUND"));
         
         // Match "UNAUTHORIZED_GRIEVANCE"
         if (!result.getAnswersheet().getStudent().getId().equals(studentId)) {
@@ -202,19 +206,19 @@ public StudentResultResponseDTO getResult(String examId, String studentId) {
         
         // Match "GRIEVANCE_DEADLINE_PASSED"
         if (exam.getGrievanceDeadline() != null && LocalDateTime.now().isAfter(exam.getGrievanceDeadline())) {
-            throw new RuntimeException("GRIEVANCE_DEADLINE_PASSED");
+            throw new BadRequestException("GRIEVANCE_DEADLINE_PASSED");
         }
         
         // Match "RESULTS_NOT_READY"
         AnswersheetEntity answersheet = result.getAnswersheet();
         if (answersheet.getEvaluationStatus() != EvaluationStatus.COMPLETED &&
             answersheet.getEvaluationStatus() != EvaluationStatus.COMPLETED_WITH_FAILURES) {
-            throw new RuntimeException("RESULTS_NOT_READY");
+            throw new BadRequestException("RESULTS_NOT_READY");
         }
         
         // Match "GRIEVANCE_ALREADY_EXISTS"
         if (grievanceRepository.existsByResultAndGrievanceType(result, GrievanceType.STUDENT_RAISED)) {
-            throw new RuntimeException("GRIEVANCE_ALREADY_EXISTS");
+            throw new BadRequestException("GRIEVANCE_ALREADY_EXISTS");
         }
         
         GrievanceEntity grievance = new GrievanceEntity();
@@ -237,11 +241,12 @@ public StudentResultResponseDTO getResult(String examId, String studentId) {
      *
      * @param studentId extracted from JWT
      * @return list of StudentGrievanceResponseDTO
+	 * @throws BadRequestException 
      */
-	public List<StudentGrievanceResponseDTO> getMyGrievances(String studentId) {
+	public List<StudentGrievanceResponseDTO> getMyGrievances(String studentId) throws BadRequestException {
 
         UserEntity student = userRepository.findById(studentId)
-                .orElseThrow(() -> new RuntimeException("STUDENT_NOT_FOUND"));
+                .orElseThrow(() -> new BadRequestException("STUDENT_NOT_FOUND"));
 
         List<GrievanceEntity> grievances = grievanceRepository.findByStudent(student);
 
