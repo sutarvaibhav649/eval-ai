@@ -1,0 +1,132 @@
+version: '3.9'
+
+services:
+
+  # ------------------------------------ PostgreSQL Database ----------------------------------
+  evalai-db:
+    image: pgvector/pgvector:pg16
+    container_name: evalai-db
+    environment:
+      POSTGRES_DB: evalai
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - evalai_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d evalai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - evalai-network
+
+  # ----------------------------------- Redis ------------------------------------------
+  evalai-redis:
+    image: redis:7-alpine
+    container_name: evalai-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - evalai-network
+
+  # ----------------------------- C++ gRPC Preprocessing Service ---------------------------
+  evalai-cpp:
+    build:
+      context: ./evalai-cpp
+      dockerfile: Dockerfile
+    container_name: evalai-cpp
+    ports:
+      - "50051:50051"
+    volumes:
+      - evalai_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "echo '' | nc -w 1 localhost 50051 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+    networks:
+      - evalai-network
+
+  #------------------------- Python FastAPI Service ----------------------------------
+  evalai-python:
+    build:
+      context: ./evalai-python
+      dockerfile: Dockerfile
+    container_name: evalai-python
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - REDIS_URL=redis://evalai-redis:6379/0
+      - JAVA_BASE_URL=http://evalai-java:8081
+      - OCR_MODE=${OCR_MODE}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_OCR_MODEL=${OPENROUTER_OCR_MODEL}
+      - UPLOAD_BASE_PATH=/app/uploads
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+    volumes:
+      - evalai_uploads:/app/uploads
+    depends_on:
+      evalai-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+    networks:
+      - evalai-network
+
+  # ----------------------------- Java Spring Boot Service ---------------------------------
+  evalai-java:
+    build:
+      context: ./evalai-java
+      dockerfile: Dockerfile
+    container_name: evalai-java
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://evalai-db:5432/evalai
+      - SPRING_DATASOURCE_USERNAME=${DATABASE_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DATABASE_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - APP_JWT_SECRET=${JWT_SECRET}
+      - APP_JWT_EXPIRATION=${JWT_EXPIRATION}
+      - APP_UPLOAD_BASE_PATH=/app/uploads
+      - APP_PYTHON_BASE_URL=http://evalai-python:8000
+      - APP_GRPC_HOST=evalai-cpp
+      - APP_GRPC_PORT=50051
+      - APP_PIPELINE_SKIP_CPP=false
+      - SERVER_PORT=8081
+    volumes:
+      - evalai_uploads:/app/uploads
+    depends_on:
+      evalai-db:
+        condition: service_healthy
+      evalai-python:
+        condition: service_healthy
+      evalai-cpp:
+        condition: service_started
+    networks:
+      - evalai-network
+
+# -------------------------------- Volumes ----------------------------------
+volumes:
+  evalai_db_data:
+    driver: local
+  evalai_uploads:
+    driver: local
+
+# ----------------------------------- Networks -------------------------
+networks:
+  evalai-network:
+    driver: bridge
