@@ -2,6 +2,7 @@ package com.evalai.main.services;
 
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,8 @@ import com.evalai.main.entities.AnswersheetEntity;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
+import io.grpc.Status;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,7 +100,7 @@ public class GrpcService {
                     .build();
 
             PreprocessingServiceGrpc.PreprocessingServiceBlockingStub stub =
-                    PreprocessingServiceGrpc.newBlockingStub(channel);
+                    PreprocessingServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5,TimeUnit.SECONDS);
 
             // Convert to absolute path — C++ needs absolute path
             // ../upload relative to Java becomes D:\EvalAI\ upload absolute
@@ -126,6 +129,11 @@ public class GrpcService {
             PreprocessResponse response = stub.preprocessStudentImages(
                     requestBuilder.build()
             );
+            
+            if (response.getPagesList().isEmpty()) {
+                logger.error("C++ returned empty response — fallback");
+                return rawImagePaths;
+            }
 
             if (!response.getPagesList().isEmpty()) {
                 boolean anonymized = response.getPages(0).getAnonymized();
@@ -140,18 +148,39 @@ public class GrpcService {
                     .filter(p -> p.getStatus() == PageStatus.PAGE_STATUS_SUCCESS)
                     .map(CleanedImagePage::getCleanedPath)
                     .collect(java.util.stream.Collectors.toList());
+            
+            if (cleanedPaths.isEmpty()) {
+                logger.warn("No pages processed by C++, using raw images");
+                return rawImagePaths;
+            }
 
             logger.info(
                 "C++ preprocessing complete for task {} | {} pages cleaned",
                 taskId, cleanedPaths.size()
             );
+            
+            logger.error("C++ preprocessing failed for task {}. Falling back.", taskId);
 
             return cleanedPaths;
 
-        } finally {
-            if (channel != null) {
-                channel.shutdown();
+        }catch (StatusRuntimeException ex) {
+        		if (ex.getStatus().getCode() == Status.Code.DEADLINE_EXCEEDED) {
+                logger.error("C++ timeout — falling back to raw images");
+            } else {
+                logger.error("C++ error — falling back: {}", ex.getMessage());
             }
+
+            return rawImagePaths;
+	           
+		} finally {
+			try {
+			    if (!channel.awaitTermination(3, TimeUnit.SECONDS)) {
+			        channel.shutdownNow();
+			    }
+			} catch (InterruptedException e) {
+			    channel.shutdownNow();
+			    Thread.currentThread().interrupt();
+			}
         }
     }
 }
