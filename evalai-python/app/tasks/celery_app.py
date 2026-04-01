@@ -11,6 +11,8 @@ celery_app = Celery(
     include=["app.tasks.ocr_tasks"]
 )
 
+celery_app.autodiscover_tasks(["app"])
+
 celery_app.conf.update(
     # Serialize tasks as JSON
     task_serializer="json",

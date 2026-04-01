@@ -86,6 +86,29 @@ services:
     networks:
       - evalai-network
 
+  # -------------------------------- Celery  ----------------------------------  
+  evalai-celery:
+    build:
+      context: ./evalai-python
+      dockerfile: Dockerfile
+    container_name: evalai-celery
+    command: uv run celery -A app.tasks.celery_app.celery_app worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://evalai-redis:6379/0
+      - JAVA_BASE_URL=http://evalai-java:8081
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_OCR_MODEL=${OPENROUTER_OCR_MODEL}
+      - UPLOAD_BASE_PATH=/app/uploads
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+    volumes:
+      - evalai_uploads:/app/uploads
+    depends_on:
+      evalai-redis:
+        condition: service_healthy
+    restart: always
+    networks:
+      - evalai-network
+
   # ----------------------------- Java Spring Boot Service ---------------------------------
   evalai-java:
     build:
