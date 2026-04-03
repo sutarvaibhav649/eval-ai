@@ -106,7 +106,12 @@ public class PipelineService {
 
         // Step 3 — Find all PENDING answer sheets
         List<AnswersheetEntity> pendingSheets = answerSheetRepository
-                .findByExamAndEvaluationStatus(exam, EvaluationStatus.PENDING);
+        	    .findByExamAndEvaluationStatus(exam, EvaluationStatus.PENDING);
+        
+//        if (answerSheet.getEvaluationStatus() != EvaluationStatus.PENDING) {
+//            logger.warn("Skipping already processing sheet {}", answerSheet.getId());
+//            return;
+
 
         if (pendingSheets.isEmpty()) {
             throw new BadRequestException("NO_PENDING_SHEETS");
@@ -117,7 +122,8 @@ public class PipelineService {
         int queued = 0;
         for (AnswersheetEntity answerSheet : pendingSheets) {
             try {
-                processSingleAnswerSheet(answerSheet, questionPaper);
+	            	
+            		processSingleAnswerSheet(answerSheet, questionPaper);
                 queued++;
             } catch (Exception e) {
                 logger.error(
@@ -133,6 +139,7 @@ public class PipelineService {
         }
 
         return queued;
+        
     }
     /**
      * Processes a single answer sheet through the pipeline.
@@ -148,31 +155,42 @@ public class PipelineService {
             AnswersheetEntity answerSheet,
             QuestionPaperEntity questionPaper
     ) {
-        String examId = answerSheet.getExam().getId();
+        
+    		String examId = answerSheet.getExam().getId();
         String studentId = answerSheet.getStudent().getId();
 
         List<String> rawImagePaths = getRawImagePaths(examId, studentId);
 
         logger.info("Step 2 — Getting task log");
-        List<TaskLogsEntity> taskLogs = taskLogRepository.findByAnswersheet(answerSheet);
-        logger.info("Step 2 done — found {} task logs", taskLogs.size());
-      
-        if (taskLogs.isEmpty()) {
-            throw new RuntimeException("TASK_LOG_NOT_FOUND for sheet " + answerSheet.getId());
+        TaskLogsEntity taskLog = taskLogRepository
+                .findByAnswersheet(answerSheet)
+                .orElseThrow(() -> new RuntimeException(
+                        "TASK_LOG_NOT_FOUND for sheet " + answerSheet.getId()
+                ));
+        
+        if (taskLog.getStatus() != TaskLogStatus.QUEUED) {
+            logger.warn("Skipping duplicate pipeline for {}", answerSheet.getId());
+            return;
         }
-        TaskLogsEntity taskLog = taskLogs.get(0);
+      
+//        if (taskLogs.isEmpty()) {
+//            throw new RuntimeException("TASK_LOG_NOT_FOUND for sheet " + answerSheet.getId());
+//        }
+//        TaskLogsEntity taskLog = taskLogs.get(0);
         String taskId = taskLog.getTaskId();
 
-        // Step 3 — Call C++ for preprocessing (or skip in dev mode)
+        
+     // Step 3 — Update TaskLog to PROCESSING
+        taskLog.setStatus(TaskLogStatus.PROCESSING);
+        taskLog.setStartedAt(LocalDateTime.now());
+        taskLogRepository.save(taskLog);
+        
+        // Step 4 — Call C++ for preprocessing (or skip in dev mode)
         List<String> cleanedImagePaths = grpcService.preprocessImages(
                 answerSheet, taskId, rawImagePaths
         );
 
-        // Step 4 — Update TaskLog to PROCESSING
-        taskLog.setStatus(TaskLogStatus.PROCESSING);
-        taskLog.setStartedAt(LocalDateTime.now());
-        taskLogRepository.save(taskLog);
-
+        
         // Step 5 — Update AnswerSheet status
         answerSheet.setOcrStatus(OcrStatus.PROCESSING);
         answerSheet.setEvaluationStatus(EvaluationStatus.PROCESSING);

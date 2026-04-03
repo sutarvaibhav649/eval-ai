@@ -100,7 +100,7 @@ public class GrpcService {
                     .build();
 
             PreprocessingServiceGrpc.PreprocessingServiceBlockingStub stub =
-                    PreprocessingServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5,TimeUnit.SECONDS);
+                    PreprocessingServiceGrpc.newBlockingStub(channel).withDeadlineAfter(120,TimeUnit.SECONDS);
 
             // Convert to absolute path — C++ needs absolute path
             // ../upload relative to Java becomes D:\EvalAI\ upload absolute
@@ -159,7 +159,7 @@ public class GrpcService {
                 taskId, cleanedPaths.size()
             );
             
-            logger.error("C++ preprocessing failed for task {}. Falling back.", taskId);
+//            logger.error("C++ preprocessing failed for task {}. Falling back.", taskId);
 
             return cleanedPaths;
 

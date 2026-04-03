@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from app.api.routes import ocr, embeddings, health
 from app.core.logger import get_logger
+from app.services.embedding_service import get_model
+from app.services.ocr_service import get_paddle_ocr
 
 logger = get_logger(__name__)
 
@@ -20,6 +22,10 @@ app.include_router(ocr.router, prefix="/ocr", tags=["OCR"])
 async def startup_event():
     logger.info("EvalAI Python service starting up...")
     logger.info("Routes registered: /health, /embeddings, /ocr")
+    logger.info("🔥 Preloading models...")
+    get_model()
+    get_paddle_ocr()
+    logger.info("✅ Models loaded successfully")
 
 
 @app.on_event("shutdown")
