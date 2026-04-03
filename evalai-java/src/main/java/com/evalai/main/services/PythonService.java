@@ -40,6 +40,9 @@ public class PythonService {
 	@Value("${app.python.base-url}")
     private String pythonBaseUrl;
 	
+	@Value("${app.java.base-url:http://evalai-java:8081}")
+	private String javaBaseUrl;
+	
 	
 	/**
      * Sends an OCR extraction request to Python for one student's answer sheet.
@@ -94,6 +97,7 @@ public class PythonService {
         payload.put("student", student);
         payload.put("cleaned_image_paths", imagePaths);
         payload.put("questions", questions);
+        payload.put("callback_url", javaBaseUrl + "/pipeline/callback");
 
         // Send to Python — Python returns immediately, processing is async
         String url = pythonBaseUrl + "/ocr/extract";

@@ -71,6 +71,6 @@ public class TaskLogsEntity {
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "answersheet_id", nullable = false)
+    @JoinColumn(name = "answersheet_id", nullable = false,unique = true)
     private AnswersheetEntity answersheet;
 }

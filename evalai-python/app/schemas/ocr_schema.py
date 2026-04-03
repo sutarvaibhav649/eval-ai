@@ -39,6 +39,7 @@ class OcrRequest(BaseModel):
     student: StudentContext
     cleaned_image_paths: List[str]
     questions: List[QuestionContext]
+    callback_url: str
 
 class ExtractedAnswer(BaseModel):
     sub_question_id: str

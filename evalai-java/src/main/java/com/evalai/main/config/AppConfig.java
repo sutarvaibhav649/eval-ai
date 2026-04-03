@@ -23,7 +23,7 @@ public class AppConfig {
 		factory.setConnectTimeout(5000);
 		
 		// read time out 5 seconds
-		factory.setReadTimeout(10000);
+		factory.setReadTimeout(50000);
 		
 		
         return new RestTemplate(factory);
