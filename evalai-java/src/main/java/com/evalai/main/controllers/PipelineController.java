@@ -2,9 +2,11 @@ package com.evalai.main.controllers;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.coyote.BadRequestException;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,6 +43,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PipelineController {
 	private final PipelineService pipelineService;
+
+    @Value("${app.grpc.host}")
+    private String grpcHost;
+
+    @Value("${app.grpc.port}")
+    private int grpcPort;
+
+    @Value("${app.grpc.deadline-seconds}")
+    private long grpcDeadlineSeconds;
 	
 	
 	/**
@@ -113,21 +124,22 @@ public class PipelineController {
     
     @GetMapping("/cpp-health")
     public ResponseEntity<?> cppHealth() {
+        ManagedChannel channel = null;
         try {
-            ManagedChannel channel = ManagedChannelBuilder
-                    .forAddress("localhost", 50051)
+            channel = ManagedChannelBuilder
+                    .forAddress(grpcHost, grpcPort)
                     .usePlaintext()
                     .build();
 
             PreprocessingServiceGrpc.PreprocessingServiceBlockingStub stub =
-                    PreprocessingServiceGrpc.newBlockingStub(channel);
+                    PreprocessingServiceGrpc.newBlockingStub(channel)
+                            .withDeadlineAfter(grpcDeadlineSeconds, TimeUnit.SECONDS);
 
             HealthCheckRequest request = HealthCheckRequest.newBuilder()
                     .setService("evalai-cpp")
                     .build();
 
             HealthCheckResponse response = stub.healthCheck(request);
-            channel.shutdown();
 
             return ResponseEntity.ok(Map.of(
                     "status", response.getStatus(),
@@ -136,6 +148,10 @@ public class PipelineController {
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body("C++ service unreachable: " + e.getMessage());
+        } finally {
+            if (channel != null) {
+                channel.shutdown();
+            }
         }
     }
     private static final org.slf4j.Logger logger =

@@ -128,6 +128,7 @@ services:
       - APP_PYTHON_BASE_URL=http://evalai-python:8000
       - APP_GRPC_HOST=evalai-cpp
       - APP_GRPC_PORT=50051
+      - APP_GRPC_DEADLINE_SECONDS=60
       - APP_PIPELINE_SKIP_CPP=false
       - SERVER_PORT=8081
     volumes:

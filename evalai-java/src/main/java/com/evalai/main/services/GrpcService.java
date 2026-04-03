@@ -44,6 +44,9 @@ public class GrpcService {
     @Value("${app.grpc.port}")
     private int grpcPort;
 
+    @Value("${app.grpc.deadline-seconds}")
+    private long grpcDeadlineSeconds;
+
     @Value("${app.pipeline.skip-cpp}")
     private boolean skipCpp;
 
@@ -97,10 +100,13 @@ public class GrpcService {
             channel = ManagedChannelBuilder
                     .forAddress(grpcHost, grpcPort)
                     .usePlaintext()
+                    .maxInboundMessageSize(100 * 1024 * 1024)
                     .build();
 
             PreprocessingServiceGrpc.PreprocessingServiceBlockingStub stub =
-                    PreprocessingServiceGrpc.newBlockingStub(channel).withDeadlineAfter(5,TimeUnit.SECONDS);
+                    PreprocessingServiceGrpc
+                            .newBlockingStub(channel)
+                            .withDeadlineAfter(grpcDeadlineSeconds, TimeUnit.SECONDS);
 
             // Convert to absolute path — C++ needs absolute path
             // ../upload relative to Java becomes D:\EvalAI\ upload absolute
@@ -158,8 +164,6 @@ public class GrpcService {
                 "C++ preprocessing complete for task {} | {} pages cleaned",
                 taskId, cleanedPaths.size()
             );
-            
-            logger.error("C++ preprocessing failed for task {}. Falling back.", taskId);
 
             return cleanedPaths;
 
@@ -174,11 +178,16 @@ public class GrpcService {
 	           
 		} finally {
 			try {
-			    if (!channel.awaitTermination(3, TimeUnit.SECONDS)) {
-			        channel.shutdownNow();
-			    }
+			    if (channel != null) {
+                    channel.shutdown();
+                    if (!channel.awaitTermination(3, TimeUnit.SECONDS)) {
+                        channel.shutdownNow();
+                    }
+                }
 			} catch (InterruptedException e) {
-			    channel.shutdownNow();
+			    if (channel != null) {
+                    channel.shutdownNow();
+                }
 			    Thread.currentThread().interrupt();
 			}
         }
