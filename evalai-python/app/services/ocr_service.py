@@ -139,7 +139,7 @@ def extract_text_from_images(image_paths: List[str]) -> Tuple[str, float]:
 
     results = {}
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=2) as executor:
         future_to_idx = {
             executor.submit(extract_text_from_image, path): idx
             for idx, path in enumerate(sorted(image_paths))

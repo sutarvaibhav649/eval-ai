@@ -289,7 +289,7 @@ public class AdminService {
 
             for (int page = 0; page < pageCount; page++) {
                 // Render at 300 DPI for good OCR quality
-                BufferedImage image = renderer.renderImageWithDPI(page, 300);
+                BufferedImage image = renderer.renderImageWithDPI(page, 150);
                 String imagePath = outputDir + File.separator + "page_" + (page + 1) + ".png";
                 ImageIO.write(image, "PNG", new File(imagePath));
             }
