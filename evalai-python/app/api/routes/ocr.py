@@ -16,7 +16,7 @@ async def extract_answers(request: OcrRequest):
     logger.info(
         f"Received OCR request | task_id: {request.task_id} | "
         f"student: {request.student.student_id} | "
-        f"pages: {len(request.cleaned_image_paths)}"
+        f"pages: {len(request.raw_image_paths)}"
     )
 
     # 🔥 Push to Celery

@@ -12,7 +12,6 @@ import com.evalai.main.entities.QuestionPaperEntity;
 import com.evalai.main.entities.ResultEntity;
 import com.evalai.main.entities.StudentAnswer;
 import com.evalai.main.entities.SubQuestionEntity;
-import com.evalai.main.entities.TaskLogsEntity;
 import com.evalai.main.enums.EvaluationStatus;
 import com.evalai.main.enums.FailureReason;
 import com.evalai.main.enums.FeedbackGeneratedBy;
@@ -23,15 +22,15 @@ import com.evalai.main.enums.ResultStatus;
 import com.evalai.main.enums.TaskLogStatus;
 import com.evalai.main.repositories.*;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
-import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
+
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+
 
 import org.apache.coyote.BadRequestException;
 import org.slf4j.Logger;
@@ -67,8 +66,8 @@ public class PipelineService {
     private final ExamRepository examRepository;
     private final QuestionPaperRepository questionPaperRepository;
     private final FeedbackRepository feedbackRepository;
-    private final GrpcService grpcService;
-    private final PythonService pythonService;
+    private final PipelineWorkerService pipelineWorkerService;
+    private final ExecutorService executor;
     
     @Value("${app.upload.base-path}")
     private String uploadBasePath;
@@ -118,98 +117,26 @@ public class PipelineService {
         }
 
 
-        // Step 4 — Process each answer sheet
-        int queued = 0;
-        for (AnswersheetEntity answerSheet : pendingSheets) {
-            try {
-	            	
-            		processSingleAnswerSheet(answerSheet, questionPaper);
-                queued++;
-            } catch (Exception e) {
-                logger.error(
-                        "Failed to queue answer sheet {} for student {}: {}",
-                        answerSheet.getId(),
-                        answerSheet.getStudent().getId(),
-                        e.getMessage()
-                );
-                // Mark this sheet as FAILED but continue with others
-                answerSheet.setEvaluationStatus(EvaluationStatus.FAILED);
-                answerSheetRepository.save(answerSheet);
-            }
+        // Step 4 — Process each answer sheetF
+        int queued = pendingSheets.size();
+        
+        String questionPaperId = questionPaper.getId();
+
+        for (AnswersheetEntity sheet : pendingSheets) {
+            String sheetId = sheet.getId();
+            executor.submit(() -> {
+                try {
+                    pipelineWorkerService.processSingleAnswerSheet(sheetId, questionPaperId);
+                } catch (Exception e) {
+                    logger.error("Pipeline failed for {}", sheetId, e);
+                }
+            });
         }
 
         return queued;
         
     }
-    /**
-     * Processes a single answer sheet through the pipeline.
-     *
-     * Steps:
-     * 1. Collect raw image paths from disk
-     * 2. Send to C++ for preprocessing → get cleaned image paths
-     * 3. Update TaskLog to PROCESSING
-     * 4. Send to Python for OCR + scoring
-     * 5. Update AnswerSheet.ocrStatus to PROCESSING
-     */
-    private void processSingleAnswerSheet(
-            AnswersheetEntity answerSheet,
-            QuestionPaperEntity questionPaper
-    ) {
-        
-    		String examId = answerSheet.getExam().getId();
-        String studentId = answerSheet.getStudent().getId();
-
-        List<String> rawImagePaths = getRawImagePaths(examId, studentId);
-
-        logger.info("Step 2 — Getting task log");
-        TaskLogsEntity taskLog = taskLogRepository
-                .findByAnswersheet(answerSheet)
-                .orElseThrow(() -> new RuntimeException(
-                        "TASK_LOG_NOT_FOUND for sheet " + answerSheet.getId()
-                ));
-        
-        if (taskLog.getStatus() != TaskLogStatus.QUEUED) {
-            logger.warn("Skipping duplicate pipeline for {}", answerSheet.getId());
-            return;
-        }
-      
-//        if (taskLogs.isEmpty()) {
-//            throw new RuntimeException("TASK_LOG_NOT_FOUND for sheet " + answerSheet.getId());
-//        }
-//        TaskLogsEntity taskLog = taskLogs.get(0);
-        String taskId = taskLog.getTaskId();
-
-        
-     // Step 3 — Update TaskLog to PROCESSING
-        taskLog.setStatus(TaskLogStatus.PROCESSING);
-        taskLog.setStartedAt(LocalDateTime.now());
-        taskLogRepository.save(taskLog);
-        
-        // Step 4 — Call C++ for preprocessing (or skip in dev mode)
-        List<String> cleanedImagePaths = grpcService.preprocessImages(
-                answerSheet, taskId, rawImagePaths
-        );
-
-        
-        // Step 5 — Update AnswerSheet status
-        answerSheet.setOcrStatus(OcrStatus.PROCESSING);
-        answerSheet.setEvaluationStatus(EvaluationStatus.PROCESSING);
-        answerSheetRepository.save(answerSheet);
-
-        // Step 6 — Send to Python for OCR + scoring
-        String celeryTaskId = pythonService.sendOcrRequest(
-                answerSheet, taskId, cleanedImagePaths, questionPaper
-        );
-
-        // Step 7 — Store Celery task ID in TaskLog for tracking
-        taskLog.setCeleryTaskId(celeryTaskId);
-        taskLogRepository.save(taskLog);
-
-        logger.info(
-                "Answer sheet {} queued | student: {} | celery_task_id: {}",
-                answerSheet.getId(), studentId, celeryTaskId
-        );
-    }
+    
     
     /*----------------------------------------------------------
     						HANDLE CALLBACK
@@ -443,35 +370,6 @@ public class PipelineService {
     }
     
     
-    /*---------------------------------------------------------------------
-    							PRIVATE HELPERS
-    --------------------------------------------------------------------*/ 
-
-    /**
-     * Collects all raw image paths for a student's answer sheet from disk.
-     * Reads from upload/raw_images/examId/studentId/ directory.
-     */
-    private List<String> getRawImagePaths(String examId, String studentId) {
-        String rawDir = uploadBasePath + File.separator + "raw_images"
-                + File.separator + examId + File.separator + studentId;
-
-        File dir = new File(rawDir);
-        
-
-        if (!dir.exists() || !dir.isDirectory()) {
-            logger.error("Raw images directory not found: {}", rawDir);
-            return new ArrayList<>();
-        }
-
-        File[] files = dir.listFiles();
-        logger.info("Files found: {}", files != null ? files.length : 0);  // ← add this
-
-        return Arrays.stream(files)
-                .filter(f -> f.getName().endsWith(".png"))
-                .sorted(Comparator.comparing(File::getName))
-                .map(File::getAbsolutePath)
-                .collect(java.util.stream.Collectors.toList());
-    }
     
     
     private void saveFeedback(

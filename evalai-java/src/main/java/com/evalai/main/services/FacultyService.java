@@ -33,7 +33,7 @@ import com.evalai.main.enums.GrievanceStatus;
 import com.evalai.main.enums.QuestionPaperStatus;
 import com.evalai.main.repositories.*;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 /**

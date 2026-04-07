@@ -7,20 +7,45 @@ from app.core.logger import get_logger
 import httpx
 import json
 import os
+from app.services.cpp_client import call_cpp_preprocessing
 
 logger = get_logger(__name__)
 
 OCR_MODE = os.getenv("OCR_MODE", "openrouter")
 
+SKIP_CPP = os.getenv("APP_PIPELINE_SKIP_CPP", "false").lower() == "true"
+
+
 
 def process_answer_sheet_sync(request_data: dict):
 
+
     task_id = request_data["task_id"]
-    image_paths = request_data["cleaned_image_paths"]
+    raw_paths = request_data["raw_image_paths"]
     questions = request_data["questions"]
     callback_url = request_data.get("callback_url")
     context = request_data.get("context", {})
     student = request_data.get("student", {})
+
+    #  STEP 0 — C++ preprocessing
+    if not SKIP_CPP:
+        cleaned_paths = call_cpp_preprocessing(request_data)
+        if cleaned_paths and len(cleaned_paths) == len(raw_paths):
+            image_paths = cleaned_paths
+            logger.info("[PIPELINE] Using CLEANED images")
+        else:
+            image_paths = raw_paths
+            logger.warning("[PIPELINE] Using RAW images (fallback)")
+    else:
+        image_paths = raw_paths
+        logger.info("[PIPELINE] CPP skipped — using RAW images")
+
+    # if cleaned_paths and len(cleaned_paths) == len(raw_paths):
+    #     image_paths = cleaned_paths
+    #     logger.info("[PIPELINE] Using CLEANED images")
+    # else:
+    #     image_paths = raw_paths
+    #     logger.warning("[PIPELINE] Using RAW images (fallback)")
 
     logger.info(f"[PIPELINE] Start task {task_id}")
     logger.info(f"[CALLBACK URL] {callback_url}")
@@ -74,27 +99,45 @@ def process_answer_sheet_sync(request_data: dict):
 
         # FAILED path — insufficient answer
         if not is_text_sufficient(student_answer):
-            logger.warning(f"[EMPTY] {label} insufficient text")
+
+            if student_answer.strip():
+                logger.warning(f"[LOW TEXT] {label} but processing with low confidence")
+
+                results.append({
+                    "sub_question_id": q["sub_question_id"],
+                    "status": "COMPLETED",  # 🔥 changed
+                    "failure_reason": None,
+                    "extracted_text": student_answer,
+                    "cleaned_text": student_answer,
+                    "embedding": None,
+                    "ocr_confidence": ocr_confidence,
+                    "similarity_score": 0.0,
+                    "ai_marks": 0.0,
+                    "feedback": {
+                        "strengths": "",
+                        "weakness": "Answer is too short",
+                        "suggestions": "Add more explanation",
+                        "overall_feedback": "Insufficient detail",
+                        "key_concepts_missed": key_concepts
+                    }
+                })
+                continue
+
+            # truly empty
             results.append({
                 "sub_question_id": q["sub_question_id"],
-                "sub_question_label": q["sub_question_label"],  # ✅
-                "question_number": q.get("question_number", 0), # ✅
-                "subject_code": subject_code,                   # ✅
+                "sub_question_label": q["sub_question_label"],
+                "question_number": q.get("question_number", 0),
+                "subject_code": subject_code,
                 "status": "FAILED",
-                "failure_reason": "TEXT_TOO_SHORT",
+                "failure_reason": "NO_TEXT_DETECTED",
                 "extracted_text": student_answer,
-                "cleaned_text": student_answer,
+                "cleaned_text": None,
                 "embedding": None,
                 "ocr_confidence": ocr_confidence,
                 "similarity_score": 0.0,
                 "ai_marks": 0.0,
-                "feedback": {
-                    "strengths": "",
-                    "weakness": "Answer is too short or missing",
-                    "suggestions": "Provide a complete answer",
-                    "overall_feedback": "Insufficient answer",
-                    "key_concepts_missed": key_concepts
-                }
+                "feedback": None
             })
             continue
 

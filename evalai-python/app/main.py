@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from app.api.routes import ocr, embeddings, health
 from app.core.logger import get_logger
 from app.services.embedding_service import get_model
-from app.services.ocr_service import get_paddle_ocr
+from app.services.ocr_service import get_paddle_ocr,OCR_MODE
 
 logger = get_logger(__name__)
 
@@ -24,8 +24,11 @@ async def startup_event():
     logger.info("Routes registered: /health, /embeddings, /ocr")
     logger.info("🔥 Preloading models...")
     get_model()
-    get_paddle_ocr()
-    logger.info("✅ Models loaded successfully")
+    if OCR_MODE == "paddle":
+        get_paddle_ocr()
+        logger.info("✅ Embedding + PaddleOCR models loaded successfully")
+    else:
+        logger.info(f"✅ Embedding model loaded | OCR mode: {OCR_MODE} (no preload needed)")
 
 
 @app.on_event("shutdown")

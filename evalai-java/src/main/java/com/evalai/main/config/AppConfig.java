@@ -1,5 +1,8 @@
 package com.evalai.main.config;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -19,13 +22,17 @@ public class AppConfig {
     RestTemplate restTemplate() {
 		SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
 		
-		// connection Timeout s second
-		factory.setConnectTimeout(5000);
+		// connection Timeout 3s second
+		factory.setConnectTimeout(3000);
 		
 		// read time out 5 seconds
-		factory.setReadTimeout(50000);
+		factory.setReadTimeout(5000);
 		
 		
         return new RestTemplate(factory);
     }
+	@Bean
+	ExecutorService executorService() {
+	    return Executors.newFixedThreadPool(5);
+	}
 }

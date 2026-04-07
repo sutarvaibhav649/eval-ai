@@ -75,6 +75,7 @@ services:
       - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
     volumes:
       - evalai_uploads:/app/uploads
+      - ./evalai-python/app:/app/app
     depends_on:
       evalai-redis:
         condition: service_healthy
@@ -83,7 +84,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 120s
     networks:
       - evalai-network
 
@@ -91,7 +92,7 @@ services:
   evalai-celery:
     build:
       context: ./evalai-python
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.celery
     container_name: evalai-celery
     command: uv run celery -A app.tasks.celery_app worker --loglevel=info --pool=solo
     environment:
@@ -102,8 +103,10 @@ services:
       - OPENROUTER_OCR_MODEL=${OPENROUTER_OCR_MODEL}
       - UPLOAD_BASE_PATH=/app/uploads
       - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - APP_PIPELINE_SKIP_CPP=true
     volumes:
       - evalai_uploads:/app/uploads
+      - ./evalai-python/app:/app/app
     depends_on:
       evalai-redis:
         condition: service_healthy

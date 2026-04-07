@@ -10,7 +10,19 @@ import com.evalai.main.dtos.ApiResponse;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	@ExceptionHandler(RuntimeException.class)
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(null)
+                        .timestamp(System.currentTimeMillis())
+                        .build());
+    }
+
+    @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Object>> handleRuntime(RuntimeException ex) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
@@ -28,22 +40,9 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.builder()
                         .success(false)
-                        .message("Internal server error")
-                        .data(null)
-                        .timestamp(System.currentTimeMillis())
-                        .build());
-    }
-    
-    @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ApiResponse<Object>> handleBadRequest(BadRequestException ex) {
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.builder()
-                        .success(false)
                         .message(ex.getMessage())
                         .data(null)
                         .timestamp(System.currentTimeMillis())
                         .build());
     }
-    
 }

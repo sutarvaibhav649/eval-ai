@@ -34,7 +34,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PythonService {
 	private final RestTemplate restTemplate;
-	private final SubQuestionRepository subQuestionRepository;
 	private final ModelAnswerRepository modelAnswerRepository;
 	
 	@Value("${app.python.base-url}")
@@ -95,7 +94,7 @@ public class PythonService {
         payload.put("task_id", taskId);
         payload.put("context", context);
         payload.put("student", student);
-        payload.put("cleaned_image_paths", imagePaths);
+        payload.put("raw_image_paths", imagePaths);
         payload.put("questions", questions);
         payload.put("callback_url", javaBaseUrl + "/pipeline/callback");
 

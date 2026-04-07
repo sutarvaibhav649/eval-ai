@@ -37,7 +37,7 @@ class OcrRequest(BaseModel):
     task_id: str
     context: ExamContext
     student: StudentContext
-    cleaned_image_paths: List[str]
+    raw_image_paths: List[str]
     questions: List[QuestionContext]
     callback_url: str
 

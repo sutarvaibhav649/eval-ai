@@ -30,6 +30,8 @@ def get_paddle_ocr():
     return _paddle_ocr
 
 
+client = httpx.Client(timeout=30.0)
+
 # ── OpenRouter OCR ────────────────────────────────────────────────────────────
 def _ocr_with_openrouter(image_path: str) -> Tuple[str, float]:
     with open(image_path, "rb") as f:
@@ -133,16 +135,18 @@ def extract_text_from_image(image_path: str) -> Tuple[str, float]:
     return text, confidence
 
 
-def extract_text_from_images(image_paths: List[str]) -> Tuple[str, float]:
+def extract_text_from_images(image_paths):
     batch_start = time.time()
     logger.info(f"[OCR-BATCH] Starting OCR for {len(image_paths)} images | mode={OCR_MODE}")
 
     results = {}
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    max_workers = min(6, len(image_paths))  # 🔥 increase parallelism safely
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_idx = {
             executor.submit(extract_text_from_image, path): idx
-            for idx, path in enumerate(sorted(image_paths))
+            for idx, path in enumerate(image_paths)
         }
 
         for future in as_completed(future_to_idx):
@@ -155,16 +159,21 @@ def extract_text_from_images(image_paths: List[str]) -> Tuple[str, float]:
                 logger.error(f"[OCR-BATCH] Page {idx+1} failed: {e}")
                 results[idx] = ("", 0.0)
 
-    # Reassemble in correct page order
-    all_texts = [results[i][0] for i in sorted(results) if results[i][0]]
-    all_confidences = [results[i][1] for i in sorted(results) if results[i][0]]
+    all_texts = []
+    all_confidences = []
+
+    for i in sorted(results):
+        text, conf = results[i]
+        if text:
+            all_texts.append(text)
+            all_confidences.append(conf)
 
     full_text = "\n".join(all_texts)
-    avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0.0
+    avg_conf = sum(all_confidences)/len(all_confidences) if all_confidences else 0.0
 
     logger.info(
         f"[OCR-BATCH] Completed {len(image_paths)} pages | "
-        f"total_time={time.time() - batch_start:.2f}s | avg_conf={avg_confidence:.2f}"
+        f"time={time.time() - batch_start:.2f}s"
     )
 
-    return full_text, avg_confidence
+    return full_text, avg_conf

@@ -13,6 +13,15 @@
 namespace fs = std::filesystem;
 
 /*-----------------------------------------------------------
+                SEMAPHORE GUARD
+-----------------------------------------------------------*/
+struct SemaphoreGuard {
+    std::counting_semaphore<>& sem;
+    SemaphoreGuard(std::counting_semaphore<>& s) : sem(s) { sem.acquire(); }
+    ~SemaphoreGuard() { sem.release(); }
+};
+
+/*-----------------------------------------------------------
                 HEALTH CHECK
 -----------------------------------------------------------*/
 ::grpc::Status PreprocessingServiceImpl::HealthCheck(
@@ -21,13 +30,13 @@ namespace fs = std::filesystem;
     ::preprocessing::HealthCheckResponse* response)
 {
     response->set_status("HEALTHY");
-    response->set_version("1.1.0");
-    response->set_message("EvalAI C++ preprocessing service running (optimized)");
+    response->set_version("1.2.0");
+    response->set_message("C++ preprocessing service running");
     return ::grpc::Status::OK;
 }
 
 /*-----------------------------------------------------------
-            MAIN PREPROCESS FUNCTION
+            MAIN FUNCTION
 -----------------------------------------------------------*/
 ::grpc::Status PreprocessingServiceImpl::PreprocessStudentImages(
     ::grpc::ServerContext* context,
@@ -36,35 +45,27 @@ namespace fs = std::filesystem;
 {
     auto totalStart = std::chrono::high_resolution_clock::now();
 
-    std::cout << "[INFO] Task: " << request->task_id()
-        << " | Pages: " << request->pages_size() << std::endl;
+    std::cout << "[TASK " << request->task_id()
+        << "] Pages: " << request->pages_size() << std::endl;
 
     response->set_task_id(request->task_id());
 
-    int pageCount = request->pages_size();
-
-    struct PageResult {
-        int pageNumber;
-        std::string rawPath;
-        std::string cleanedPath;
-        float skewAngle;
-        bool anonymized;
-        bool success;
-        std::string errorMessage;
-        double timeMs;
-    };
-
-    // 🔥 Dynamic thread count
     int cores = std::thread::hardware_concurrency();
     int MAX_THREADS = std::max(1, cores - 1);
 
     std::counting_semaphore<> semaphore(MAX_THREADS);
 
-    std::vector<std::future<PageResult>> futures;
-    futures.reserve(pageCount);
+    struct PageResult {
+        int pageNumber;
+        std::string rawPath;
+        std::string cleanedPath;
+        bool success;
+        std::string error;
+    };
 
-    for (int i = 0; i < pageCount; i++) {
-        const auto& page = request->pages(i);
+    std::vector<std::future<PageResult>> futures;
+
+    for (const auto& page : request->pages()) {
 
         std::string cleanedPath = buildCleanedImagePath(
             request->output_base_path(),
@@ -77,58 +78,37 @@ namespace fs = std::filesystem;
         int pageNumber = page.page_number();
 
         futures.push_back(std::async(std::launch::async,
-            [imagePath, cleanedPath, pageNumber, &semaphore]() -> PageResult {
+            [imagePath, cleanedPath, pageNumber, &semaphore]() {
 
-                semaphore.acquire();
+                SemaphoreGuard guard(semaphore);
 
-                auto start = std::chrono::high_resolution_clock::now();
+                try {
+                    auto result = ImageProcessor::processPage(
+                        imagePath, cleanedPath, pageNumber
+                    );
 
-                std::cout << "[INFO] Page " << pageNumber << " started\n";
-
-                // 🔥 Load image
-                cv::Mat image = cv::imread(imagePath);
-
-                if (image.empty()) {
-                    semaphore.release();
                     return PageResult{
-                        pageNumber, imagePath, "", 0, false,
-                        false, "Failed to load image", 0
+                        pageNumber,
+                        imagePath,
+                        result.success ? result.cleanedPath : imagePath,
+                        result.success,
+                        result.errorMessage
+                    };
+
+                }
+                catch (const std::exception& e) {
+                    return PageResult{
+                        pageNumber,
+                        imagePath,
+                        imagePath,
+                        false,
+                        e.what()
                     };
                 }
-
-                // 🔥 Downscale large images (BIG PERFORMANCE BOOST)
-                if (image.cols > 1200) {
-                    double scale = 1200.0 / image.cols;
-                    cv::resize(image, image, cv::Size(), scale, scale);
-                }
-
-                // 🔥 Process image
-                ImageProcessor::ProcessResult result =
-                    ImageProcessor::processPage(imagePath, cleanedPath, pageNumber);
-
-                auto end = std::chrono::high_resolution_clock::now();
-                double ms = std::chrono::duration<double, std::milli>(end - start).count();
-
-                std::cout << "[INFO] Page " << pageNumber
-                    << " done | " << ms << " ms\n";
-
-                semaphore.release();
-
-                return PageResult{
-                    pageNumber,
-                    imagePath,
-                    result.cleanedPath,
-                    result.skewAngle,
-                    result.anonymized,
-                    result.success,
-                    result.errorMessage,
-                    ms
-                };
             }
         ));
     }
 
-    // Collect results
     std::vector<PageResult> results;
     for (auto& f : futures) {
         results.push_back(f.get());
@@ -139,43 +119,23 @@ namespace fs = std::filesystem;
             return a.pageNumber < b.pageNumber;
         });
 
-    int success = 0, fail = 0;
-
     for (const auto& r : results) {
-        auto* page = response->add_pages();
+        auto* p = response->add_pages();
 
-        page->set_page_number(r.pageNumber);
-        page->set_raw_path(r.rawPath);
-        page->set_skew_angle(r.skewAngle);
-        page->set_anonymized(r.anonymized);
+        p->set_page_number(r.pageNumber);
+        p->set_raw_path(r.rawPath);
+        p->set_cleaned_path(r.cleanedPath);
 
         if (r.success) {
-            page->set_cleaned_path(r.cleanedPath);
-            page->set_status(::preprocessing::PAGE_STATUS_SUCCESS);
-            success++;
+            p->set_status(::preprocessing::PAGE_STATUS_SUCCESS);
         }
         else {
-            page->set_status(::preprocessing::PAGE_STATUS_FAILED);
-            page->set_error_message(r.errorMessage);
-            fail++;
+            p->set_status(::preprocessing::PAGE_STATUS_FAILED);
+            p->set_error_message(r.error);
         }
     }
 
-    if (fail == 0)
-        response->set_status(::preprocessing::PREPROCESS_STATUS_COMPLETED);
-    else if (success > 0)
-        response->set_status(::preprocessing::PREPROCESS_STATUS_COMPLETED_WITH_FAILURES);
-    else {
-        response->set_status(::preprocessing::PREPROCESS_STATUS_FAILED);
-        response->set_error_message("All pages failed");
-    }
-
-    auto totalEnd = std::chrono::high_resolution_clock::now();
-    double totalMs = std::chrono::duration<double, std::milli>(totalEnd - totalStart).count();
-
-    std::cout << "[INFO] Done | Success: " << success
-        << " | Fail: " << fail
-        << " | Time: " << totalMs << " ms\n";
+    response->set_status(::preprocessing::PREPROCESS_STATUS_COMPLETED);
 
     return ::grpc::Status::OK;
 }
@@ -193,18 +153,4 @@ std::string PreprocessingServiceImpl::buildCleanedImagePath(
     fs::create_directories(dir);
 
     return (dir / ("page_" + std::to_string(pageNumber) + ".png")).string();
-}
-
-/*-----------------------------------------------------------
-            DIRECTORY CREATOR
------------------------------------------------------------*/
-bool PreprocessingServiceImpl::createDirectories(const std::string& path)
-{
-    try {
-        fs::create_directories(path);
-        return true;
-    }
-    catch (...) {
-        return false;
-    }
 }

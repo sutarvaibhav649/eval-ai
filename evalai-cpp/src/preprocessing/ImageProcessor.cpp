@@ -95,6 +95,6 @@ cv::Mat ImageProcessor::applyThreshold(const cv::Mat& gray)
 cv::Mat ImageProcessor::denoise(const cv::Mat& image)
 {
     cv::Mat denoised;
-    cv::fastNlMeansDenoisingColored(image, denoised, 3, 3, 7, 21);
+    cv::GaussianBlur(image, denoised, cv::Size(3, 3), 0);
     return denoised;
 }

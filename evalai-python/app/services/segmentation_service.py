@@ -61,8 +61,9 @@ def segment_text_by_labels(
             pattern = re.compile(
                 r'(?:^|\n)\s*'
                 r'(?:Q\.?|Question\.?)?\s*'
-                r'(?:\()?' + re.escape(label[0]) + r'\s*'
-                r'[-\.\s]?' + re.escape(label[1:]) + r'(?:\))?'
+                r'(?:\()?'
+                r'(\d+)\s*[-\.\s]?\s*([a-zA-Z])'
+                r'(?:\))?'
                 r'[\s\.\):\-]*',
                 re.MULTILINE | re.IGNORECASE
             )
@@ -78,10 +79,19 @@ def segment_text_by_labels(
             logger.warning(f"Label '{label}' not found in text")
 
     if not positions:
-        logger.warning(
-            f"No expected labels found in text. Expected: {expected_labels}"
-        )
-        return {}
+        logger.warning("[SEGMENTATION FAILED] Using fallback split")
+
+        # naive fallback: split equally
+        words = full_text.split()
+        chunk_size = max(1, len(words) // len(expected_labels))
+
+        segments = {}
+        for i, label in enumerate(expected_labels):
+            start = i * chunk_size
+            end = (i + 1) * chunk_size if i < len(expected_labels) - 1 else len(words)
+            segments[label] = " ".join(words[start:end])
+
+        return segments
 
     # Sort by position
     positions.sort(key=lambda x: x["start"])
@@ -98,10 +108,26 @@ def segment_text_by_labels(
     return segments
 
 
-def is_text_sufficient(text: str, min_words: int = 10) -> bool:
-    """
-    Checks if extracted text has enough content to be meaningful.
-    """
+def is_text_sufficient(text: str) -> bool:
     if not text:
         return False
-    return len(text.split()) >= min_words
+
+    text = text.strip()
+
+    # Remove very small noise
+    if len(text) < 8:
+        return False
+
+    words = text.split()
+
+    # 🔥 Relax threshold
+    if len(words) < 3:
+        return False
+
+    # Reject OCR garbage like: "a b c d"
+    meaningful_words = [w for w in words if len(w) > 1]
+
+    if len(meaningful_words) < 2:
+        return False
+
+    return True
