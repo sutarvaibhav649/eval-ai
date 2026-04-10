@@ -3,18 +3,21 @@ import time
 import base64
 import httpx
 from typing import List, Tuple
+from app.core.config import get_settings
 from app.core.logger import get_logger
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-
 logger = get_logger(__name__)
 
-# ── Mode selection ────────────────────────────────────────────────────────────
-OCR_MODE = os.getenv("OCR_MODE", "openrouter").lower()  # "openrouter" | "paddle"
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_OCR_MODEL = os.getenv("OPENROUTER_OCR_MODEL", "meta-llama/llama-4-scout:free")
+# FIX: Always use settings singleton — never os.getenv() directly.
+# Previously OCR_MODE was read from os.getenv() while config.py uses Pydantic settings.
+# These could diverge if .env was set differently from environment variables.
+settings = get_settings()
+OCR_MODE = settings.ocr_mode.lower()            # "openrouter" | "paddle"
+OPENROUTER_API_KEY = settings.openrouter_api_key
+OPENROUTER_OCR_MODEL = settings.openrouter_ocr_model
 
-# ── PaddleOCR singleton (only initialized if OCR_MODE=paddle) ─────────────────
+#  PaddleOCR singleton
 _paddle_ocr = None
 
 
@@ -30,10 +33,14 @@ def get_paddle_ocr():
     return _paddle_ocr
 
 
-client = httpx.Client(timeout=30.0)
+# OpenRouter OCR
 
-# ── OpenRouter OCR ────────────────────────────────────────────────────────────
 def _ocr_with_openrouter(image_path: str) -> Tuple[str, float]:
+    """
+    FIX: was using a module-level shared httpx.Client which is NOT thread-safe
+    across all operations. Each call now creates its own client as a context
+    manager — safe for use in ThreadPoolExecutor.
+    """
     with open(image_path, "rb") as f:
         image_data = base64.b64encode(f.read()).decode("utf-8")
 
@@ -66,21 +73,23 @@ def _ocr_with_openrouter(image_path: str) -> Tuple[str, float]:
         ]
     }
 
-    response = httpx.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=60.0,
-    )
+    # FIX: context-manager per-call — thread-safe, no shared state
+    with httpx.Client(timeout=60.0) as client:
+        response = client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
     response.raise_for_status()
     text = response.json()["choices"][0]["message"]["content"].strip()
-    return text, 1.0  # OpenRouter doesn't return confidence scores
+    return text, 1.0
 
 
-# ── PaddleOCR ─────────────────────────────────────────────────────────────────
+# PaddleOCR
+
 def _ocr_with_paddle(image_path: str) -> Tuple[str, float]:
     ocr_engine = get_paddle_ocr()
 
@@ -111,10 +120,13 @@ def _ocr_with_paddle(image_path: str) -> Tuple[str, float]:
     return full_text, avg_conf
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# ── Public API ─────────────────────────────────────────────────────────────────
+
 def extract_text_from_image(image_path: str) -> Tuple[str, float]:
     start = time.time()
-    logger.info(f"[OCR] Starting OCR for: {os.path.basename(image_path)} | mode={OCR_MODE}")
+    logger.info(
+        f"[OCR] Starting | file={os.path.basename(image_path)} | mode={OCR_MODE}"
+    )
 
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found: {image_path}")
@@ -135,28 +147,28 @@ def extract_text_from_image(image_path: str) -> Tuple[str, float]:
     return text, confidence
 
 
-def extract_text_from_images(image_paths):
+def extract_text_from_images(image_paths: List[str]) -> Tuple[str, float]:
     batch_start = time.time()
-    logger.info(f"[OCR-BATCH] Starting OCR for {len(image_paths)} images | mode={OCR_MODE}")
+    logger.info(
+        f"[OCR-BATCH] Starting {len(image_paths)} images | mode={OCR_MODE}"
+    )
 
     results = {}
-
-    max_workers = min(6, len(image_paths))  # 🔥 increase parallelism safely
+    max_workers = min(6, len(image_paths))
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_idx = {
             executor.submit(extract_text_from_image, path): idx
             for idx, path in enumerate(image_paths)
         }
-
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:
                 text, confidence = future.result()
                 results[idx] = (text, confidence)
-                logger.info(f"[OCR-BATCH] Page {idx+1} done")
+                logger.info(f"[OCR-BATCH] Page {idx + 1} done")
             except Exception as e:
-                logger.error(f"[OCR-BATCH] Page {idx+1} failed: {e}")
+                logger.error(f"[OCR-BATCH] Page {idx + 1} failed: {e}")
                 results[idx] = ("", 0.0)
 
     all_texts = []
@@ -169,11 +181,10 @@ def extract_text_from_images(image_paths):
             all_confidences.append(conf)
 
     full_text = "\n".join(all_texts)
-    avg_conf = sum(all_confidences)/len(all_confidences) if all_confidences else 0.0
+    avg_conf = sum(all_confidences) / len(all_confidences) if all_confidences else 0.0
 
     logger.info(
         f"[OCR-BATCH] Completed {len(image_paths)} pages | "
         f"time={time.time() - batch_start:.2f}s"
     )
-
     return full_text, avg_conf

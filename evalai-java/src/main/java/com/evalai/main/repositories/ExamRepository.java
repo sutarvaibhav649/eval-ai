@@ -1,13 +1,14 @@
 package com.evalai.main.repositories;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.evalai.main.entities.ExamEntity;
 import com.evalai.main.entities.SubjectEntity;
 import com.evalai.main.entities.UserEntity;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * This interface serves as the data access layer for ExamEntity, providing
@@ -22,8 +23,32 @@ import com.evalai.main.entities.UserEntity;
  */
 public interface ExamRepository extends JpaRepository<ExamEntity, String> {
 
- // Remove @Override — findById is already inherited from JpaRepository
-    List<ExamEntity> findBySubject(SubjectEntity subject);
     List<ExamEntity> findByCreatedBy(UserEntity createdBy);
-    boolean existsByTitleAndSubject_Id(String title, String subjectId);
+
+    /**
+     * FIX: was findBySubject(SubjectEntity) — single subject.
+     * Now finds all exams that contain a specific subject in their ManyToMany list.
+     */
+    @Query("SELECT e FROM ExamEntity e JOIN e.subjects s WHERE s = :subject")
+    List<ExamEntity> findBySubject(@Param("subject") SubjectEntity subject);
+
+    /**
+     * FIX: was existsByTitleAndSubject_Id(title, subjectId).
+     * Now checks if title already exists for this exam creator
+     * (duplicate title check — across subjects doesn't make sense anymore).
+     *
+     * If you still need title+subject uniqueness: use the JPQL below.
+     */
+    boolean existsByTitleAndCreatedBy(String title, UserEntity createdBy);
+
+    /**
+     * Alternative: check if an exam with this title already covers one of these subjects.
+     * Use this if business rule is "no duplicate exam title per subject".
+     */
+    @Query("SELECT COUNT(e) > 0 FROM ExamEntity e JOIN e.subjects s " +
+            "WHERE e.title = :title AND s.id IN :subjectIds")
+    boolean existsByTitleAndAnySubjectId(
+            @Param("title") String title,
+            @Param("subjectIds") List<String> subjectIds
+    );
 }

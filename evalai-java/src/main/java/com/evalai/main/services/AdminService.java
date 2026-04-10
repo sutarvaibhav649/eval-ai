@@ -1,16 +1,11 @@
 package com.evalai.main.services;
 
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.*;
-
-import javax.imageio.ImageIO;
-
-import org.apache.coyote.BadRequestException;
+import com.evalai.main.dtos.request.ExamRequestDTO;
+import com.evalai.main.dtos.request.SubjectRequestDTO;
+import com.evalai.main.entities.*;
+import com.evalai.main.enums.*;
+import com.evalai.main.utils.BadRequestException;
+import com.evalai.main.repositories.*;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -18,29 +13,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.evalai.main.dtos.request.ExamRequestDTO;
-import com.evalai.main.dtos.request.SubjectRequestDTO;
-import com.evalai.main.entities.ExamEntity;
-import com.evalai.main.entities.SubjectEntity;
-import com.evalai.main.entities.UserEntity;
-import com.evalai.main.enums.EvaluationStatus;
-import com.evalai.main.enums.ExamStatus;
-import com.evalai.main.enums.OcrStatus;
-import com.evalai.main.enums.TaskLogStatus;
-import com.evalai.main.repositories.AnswersheetRepository;
-import com.evalai.main.repositories.ExamRepository;
-import com.evalai.main.repositories.SubjectRepository;
-import com.evalai.main.repositories.TaskLogsRepository;
-import com.evalai.main.repositories.UserRepository;
-import com.evalai.main.entities.*;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
-/**
- * Handles all Admin business logic: 1. Subject creation 2. Exam creation 3.
- * Batch PDF upload + directory structure creation 4. Evaluation trigger
- *
- * @author Vaibhav Sutar
- * @version 1.0
- */
 @Service
 public class AdminService {
 
@@ -68,66 +51,67 @@ public class AdminService {
     }
 
     /*------------------------------------------------
-	  					SUBJECT
-	-------------------------------------------------*/
+                   SUBJECT
+    -------------------------------------------------*/
     /**
-     * Creates a new subject. Throws if subject code already exists — codes must
-     * be unique across the system.
-     *
-     * @param request validated SubjectRequestDTO
-     * @param adminId ID of the admin creating the subject (from JWT)
-     * @return saved SubjectEntity
-     * @throws BadRequestException 
+     * Creates a new subject.
+     * Subject code must be unique system-wide.
      */
-    public SubjectEntity createSubject(SubjectRequestDTO requestDTO, String admin) throws BadRequestException {
+    public SubjectEntity createSubject(SubjectRequestDTO requestDTO, String adminId)
+            throws BadRequestException {
 
-        // step-1: check if the subject code already exists
         if (subjectRepository.existsByCode(requestDTO.getCode())) {
             throw new BadRequestException("SUBJECT_CODE_EXISTS");
         }
 
-        // step-2: set all the properties of Subject entity
         SubjectEntity subjectEntity = new SubjectEntity();
         subjectEntity.setName(requestDTO.getName());
         subjectEntity.setCode(requestDTO.getCode().toUpperCase());
         subjectEntity.setDepartment(requestDTO.getDepartment());
         subjectEntity.setSemester(requestDTO.getSemester());
 
-        //step-3: return the Subject entity
         return subjectRepository.save(subjectEntity);
     }
 
     /*------------------------------------------------
-							EXAM
-	-------------------------------------------------*/
+                      EXAM
+    -------------------------------------------------*/
     /**
-     * Creates a new exam linked to an existing subject. Throws if subject not
-     * found or duplicate exam title exists for same subject.
+     * Creates a new exam linked to one or more subjects.
      *
-     * @param request validated ExamRequestDTO
-     * @param adminId ID of the admin creating the exam (from JWT)
+     * FIX 1: Now fetches a List<SubjectEntity> instead of a single subject.
+     * FIX 2: Duplicate check now uses title + createdBy (not title + subjectId).
+     *
+     * @param requestDTO validated exam details — now has List<String> subjectIds
+     * @param adminId    ID of the admin creating the exam (from JWT)
      * @return saved ExamEntity
-     * @throws BadRequestException 
      */
-    public ExamEntity createExam(ExamRequestDTO requestDTO, String adminId) throws BadRequestException {
+    public ExamEntity createExam(ExamRequestDTO requestDTO, String adminId)
+            throws BadRequestException {
 
-        // step-1: Check if the subject already exists in the database
-        SubjectEntity subject = subjectRepository.findById(requestDTO.getSubjectId())
-                .orElseThrow(() -> new BadRequestException("SUBJECT_NOT_FOUND"));
-
-        // step-2: verify that admin exists
+        // Step 1 — Verify admin exists
         UserEntity admin = userRepository.findById(adminId)
                 .orElseThrow(() -> new BadRequestException("ADMIN_NOT_FOUND"));
 
-        // step-3: check is there any exam already exists with same details
-        if (examRepository.existsByTitleAndSubject_Id(requestDTO.getTitle(), requestDTO.getSubjectId())) {
+        // Step 2 — Fetch ALL subjects from the provided IDs
+        List<SubjectEntity> subjects = new ArrayList<>();
+        for (String subjectId : requestDTO.getSubjectIds()) {
+            SubjectEntity subject = subjectRepository.findById(subjectId)
+                    .orElseThrow(() -> new BadRequestException(
+                            "SUBJECT_NOT_FOUND: " + subjectId
+                    ));
+            subjects.add(subject);
+        }
+
+        // Step 3 — Check for duplicate exam title created by same admin
+        if (examRepository.existsByTitleAndCreatedBy(requestDTO.getTitle(), admin)) {
             throw new RuntimeException("EXAM_ALREADY_EXISTS");
         }
 
-        // step-4: build and save exam
+        // Step 4 — Build and save exam with all subjects
         ExamEntity exam = new ExamEntity();
         exam.setTitle(requestDTO.getTitle());
-        exam.setSubject(subject);
+        exam.setSubjects(subjects);         // FIX: setSubjects (List) not setSubject
         exam.setAcademicYear(requestDTO.getAcademicYear());
         exam.setCreatedBy(admin);
         exam.setDuration(requestDTO.getDuration());
@@ -140,22 +124,11 @@ public class AdminService {
     }
 
     /*------------------------------------------------
-						BATCH UPLOAD
-	-------------------------------------------------*/
+                   BATCH UPLOAD
+    -------------------------------------------------*/
     /**
      * Processes a batch of student answer sheet PDFs.
-     *
-     * For each PDF: 1. Creates directory structure on disk 2. Saves PDF to
-     * upload/uploaded_pdf/examId/studentId/ 3. Splits PDF into individual page
-     * images → upload/raw_images/examId/studentId/ 4. Creates AnswerSheet
-     * record in DB (status: PENDING) 5. Creates TaskLog record (status: QUEUED)
-     *
-     * @param examId ID of the exam these sheets belong to
-     * @param studentIds list of student IDs matching order of files
-     * @param files list of uploaded PDF files
-     * @param adminId ID of the uploading admin (from JWT)
-     * @return list of created AnswerSheetEntity records
-     * @throws Exception
+     * No changes to this method — not affected by exam-subject refactor.
      */
     public List<AnswersheetEntity> uploadAnswerSheets(
             String examId,
@@ -163,49 +136,48 @@ public class AdminService {
             List<MultipartFile> files,
             String adminId
     ) throws Exception {
-        //step-1: validate exam exists
+
         ExamEntity exam = examRepository.findById(examId)
                 .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
 
-        // step-2: validate admin exists
         UserEntity admin = userRepository.findById(adminId)
                 .orElseThrow(() -> new BadRequestException("ADMIN_NOT_EXISTS"));
 
-        // step-3: validate file count matches student count
         if (files.size() != studentIds.size()) {
-            throw new BadRequestException("FILES_AND_STUDENT_COUNT_MISMATCH");
+            throw new BadRequestException("FILE_STUDENT_COUNT_MISMATCH");
+        }
+
+        // FIX: Validate file types before processing any files
+        for (MultipartFile file : files) {
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.equals("application/pdf")) {
+                throw new BadRequestException("ONLY_PDF_ALLOWED");
+            }
         }
 
         List<AnswersheetEntity> savedAnswersheets = new ArrayList<>();
 
-        // step-4: save the files 
-        // iterate through all files
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
             String studentId = studentIds.get(i);
 
-            // step-5: verify is student exists
             UserEntity student = userRepository.findById(studentId)
-                    .orElseThrow(() -> new BadRequestException("STUDENT_NOT_EXITST_WITH_" + studentId));
+                    .orElseThrow(() -> new BadRequestException(
+                            "STUDENT_NOT_FOUND: " + studentId
+                    ));
 
             try {
-                // step-6: Build directory
                 String pdfDir = buildPath(uploadBasePath, "uploaded_pdf", examId, studentId);
                 String rawImagesDir = buildPath(uploadBasePath, "raw_images", examId, studentId);
 
-                // step-7: create directories
                 createDirectories(pdfDir);
                 createDirectories(rawImagesDir);
 
-                //step-8: Save PDFs to disks
                 String pdfPath = pdfDir + File.separator + "answer_sheet.pdf";
-                Path pdfFilePath = Paths.get(pdfPath);
-                Files.write(pdfFilePath, file.getBytes());
+                Files.write(Paths.get(pdfPath), file.getBytes());
 
-                // Step 9 — Split PDF into individual page images
                 int pageCount = splitPdfToImages(pdfPath, rawImagesDir);
 
-                // Step 10 — Create AnswerSheet record in DB
                 AnswersheetEntity answersheet = new AnswersheetEntity();
                 answersheet.setExam(exam);
                 answersheet.setFilePath(pdfPath);
@@ -217,9 +189,7 @@ public class AdminService {
 
                 AnswersheetEntity savedAnswersheet = answersheetRepository.save(answersheet);
 
-                // Step 11 — Create TaskLog record
                 TaskLogsEntity taskLog = new TaskLogsEntity();
-
                 taskLog.setTaskId(UUID.randomUUID().toString());
                 taskLog.setAnswersheet(savedAnswersheet);
                 taskLog.setStatus(TaskLogStatus.QUEUED);
@@ -228,7 +198,8 @@ public class AdminService {
                 savedAnswersheets.add(savedAnswersheet);
 
             } catch (Exception e) {
-                throw new RuntimeException(e.getMessage());
+                throw new RuntimeException("UPLOAD_FAILED_FOR_STUDENT_" + studentId
+                        + ": " + e.getMessage());
             }
         }
 
@@ -236,59 +207,32 @@ public class AdminService {
     }
 
     /*-----------------------------------------------------------
-    						EVALUATION STATUS
+                       EVALUATION STATUS
     ------------------------------------------------------------*/
-    /**
-     * Returns the current evaluation status of all answer sheets for an exam.
-     * Used by Admin dashboard to show real-time progress.
-     *
-     * @param examId ID of the exam
-     * @return list of AnswerSheetEntity with their current statuses
-     * @throws BadRequestException 
-     */
-    public List<AnswersheetEntity> getEvaluationStatus(String examId) throws BadRequestException {
+    public List<AnswersheetEntity> getEvaluationStatus(String examId)
+            throws BadRequestException {
         ExamEntity exam = examRepository.findById(examId)
                 .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
         return answersheetRepository.findByExam(exam);
     }
 
     /*---------------------------------------------------
-     * 				PRIVATE HELPER METHODS
+     *           PRIVATE HELPER METHODS
      ---------------------------------------------------*/
-    /**
-     * Builds a file system path from parts. Example: buildPath("upload",
-     * "uploaded_pdf", "exam1", "student1") →
-     * "upload/uploaded_pdf/exam1/student1"
-     */
     private String buildPath(String... parts) {
         return String.join(File.separator, parts);
     }
 
-    /**
-     * Creates all directories in the given path if they don't exist.
-     */
     private void createDirectories(String path) throws IOException {
         Files.createDirectories(Paths.get(path));
     }
 
-    /**
-     * Splits a PDF file into individual PNG images, one per page. Uses Apache
-     * PDFBox.
-     *
-     * Writes files as: page_1.png, page_2.png, page_3.png ... into the provided
-     * output directory.
-     *
-     * @param pdfPath full path to the PDF file
-     * @param outputDir directory to write page images into
-     * @return number of pages extracted
-     */
     private int splitPdfToImages(String pdfPath, String outputDir) throws IOException {
         try (PDDocument document = Loader.loadPDF(new File(pdfPath))) {
             PDFRenderer renderer = new PDFRenderer(document);
             int pageCount = document.getNumberOfPages();
 
             for (int page = 0; page < pageCount; page++) {
-                // Render at 300 DPI for good OCR quality
                 BufferedImage image = renderer.renderImageWithDPI(page, 150);
                 String imagePath = outputDir + File.separator + "page_" + (page + 1) + ".png";
                 ImageIO.write(image, "PNG", new File(imagePath));

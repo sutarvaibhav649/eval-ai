@@ -2,7 +2,9 @@ package com.evalai.main.services;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import com.evalai.main.entities.*;
 import org.apache.coyote.BadRequestException;
 import org.springframework.stereotype.Service;
 
@@ -10,12 +12,6 @@ import com.evalai.main.dtos.request.GrievanceRequestDTO;
 import com.evalai.main.dtos.response.StudentFeedbackResponseDTO;
 import com.evalai.main.dtos.response.StudentGrievanceResponseDTO;
 import com.evalai.main.dtos.response.StudentResultResponseDTO;
-import com.evalai.main.entities.AnswersheetEntity;
-import com.evalai.main.entities.ExamEntity;
-import com.evalai.main.entities.FeedbackEntity;
-import com.evalai.main.entities.GrievanceEntity;
-import com.evalai.main.entities.ResultEntity;
-import com.evalai.main.entities.UserEntity;
 import com.evalai.main.enums.EvaluationStatus;
 import com.evalai.main.enums.GrievanceStatus;
 import com.evalai.main.enums.GrievanceType;
@@ -87,7 +83,9 @@ public StudentResultResponseDTO getResult(String examId, String studentId) throw
         
         StudentResultResponseDTO responseDTO = new StudentResultResponseDTO();
         responseDTO.setExamTitle(exam.getTitle());
-        responseDTO.setSubjectName(exam.getSubject().getName());
+        responseDTO.setSubjectName(exam.getSubjects().stream()
+                .map(SubjectEntity::getName)
+                .collect(Collectors.joining(", ")));
         responseDTO.setAcademicYear(exam.getAcademicYear());
         responseDTO.setEvaluationStatus(answersheet.getEvaluationStatus());
         
@@ -152,7 +150,9 @@ public StudentResultResponseDTO getResult(String examId, String studentId) throw
 	    
 	    StudentFeedbackResponseDTO responseDTO = new StudentFeedbackResponseDTO();
 	    responseDTO.setExamTitle(exam.getTitle());
-	    responseDTO.setSubjectName(exam.getSubject().getName());
+        responseDTO.setSubjectName(exam.getSubjects().stream()
+                .map(SubjectEntity::getName)
+                .collect(Collectors.joining(", ")));;
 	    
 	    List<StudentFeedbackResponseDTO.SubQuestionFeedbackDTO> feedbackDTOs = allFeedbacks.stream()
 	            .map(feedback -> {
@@ -182,7 +182,7 @@ public StudentResultResponseDTO getResult(String examId, String studentId) throw
      * 3. Must be within grievance_deadline — checked against exam deadline
      * 4. Evaluation must be complete before grievance can be raised
      *
-     * @param request   GrievanceRequestDTO with resultId, reason, requestedMarks
+     * @param requestDTO   GrievanceRequestDTO with resultId, reason, requestedMarks
      * @param studentId extracted from JWT
      * @return saved GrievanceEntity
 	 * @throws BadRequestException 

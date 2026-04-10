@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -54,7 +55,7 @@ public class PythonService {
      * Python receives this, queues a Celery task, and returns immediately.
      * Results come back via POST /pipeline/callback.
      *
-     * @param answerSheet   the student's answer sheet entity
+     * @param answersheet   the student's answer sheet entity
      * @param taskId        unique task ID Java generated for this job
      * @param imagePaths    list of cleaned image paths from C++ output
      * @param questionPaper the question paper for this exam
@@ -68,16 +69,20 @@ public class PythonService {
 			
 	) {
 		ExamEntity exam = answersheet.getExam();
-		SubjectEntity subject = exam.getSubject();
+        List<SubjectEntity> subjects = exam.getSubjects();
+
+        // Join names/codes for the context block
+        String subjectNames = subjects.stream().map(SubjectEntity::getName).collect(Collectors.joining(", "));
+        String subjectCodes = subjects.stream().map(SubjectEntity::getCode).collect(Collectors.joining(", "));
 		
 		// context block
 		Map<String, Object> context = new HashMap<>();
 		context.put("exam_id", exam.getId());
 		context.put("exam_name", exam.getTitle());
-		context.put("course_id", subject.getId());
-		context.put("course_name", subject.getName());
-		context.put("subject_code", subject.getCode());
-		context.put("subject_name", subject.getName());  
+		context.put("course_id", subjects.isEmpty() ? "" : subjects.get(0).getId());
+		context.put("course_name", subjectNames);
+		context.put("subject_code", subjectCodes);
+		context.put("subject_name", subjectNames);
 		context.put("academic_year", exam.getAcademicYear());
 		context.put("question_paper_id", questionPaper.getId());
 		context.put("question_paper_set", questionPaper.getSetLable());

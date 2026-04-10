@@ -1,21 +1,14 @@
 package com.evalai.main.entities;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
+import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.evalai.main.enums.ExamStatus;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,12 +16,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Represents a specific examination instance for a Subject. Stores critical
- * metadata such as total marks, duration, and the grievance deadline. Serves as
- * the parent for Question Papers and Answersheets.
+ * FIX: ExamEntity — changed subject relation from ManyToOne → ManyToMany.
  *
- * @author Vaibhav Sutar
- * @version 1.0
+ * REASON: Business logic says "one exam can have many subjects"
+ * (e.g., a combined mid-sem exam covering multiple subjects).
+ * ManyToMany uses a join table: exam_subjects(exam_id, subject_id).
+ *
+ * IMPACT:
+ *  - ExamRequestDTO now takes List<String> subjectIds instead of String subjectId
+ *  - AdminService.createExam() updated to fetch all subjects and set the list
+ *  - ExamResponseDTO returns List<SubjectResponseDTO> instead of single subject
+ *  - QuestionPaperEntity still links to one exam (unchanged)
  */
 @Builder
 @Entity
@@ -39,17 +37,11 @@ import lombok.Setter;
 @AllArgsConstructor
 public class ExamEntity {
 
-    /**
-     * Unique identifier for the exam record (UUID).
-     */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "exam_id")
     private String id;
 
-    /**
-     * Title of the exam like MID-SEM-2025/26
-     */
     @Column(name = "exam_title", nullable = false)
     private String title;
 
@@ -78,20 +70,26 @@ public class ExamEntity {
     private LocalDateTime createdAt;
 
     /**
-     * Relation between the user and the exam who created the exam Many to one
-     * relation between the user and exam where many exams created by admin
-     * Admin can create multiple exams
+     * Many exams created by one admin.
      */
     @ManyToOne
     @JoinColumn(name = "created_by", nullable = false)
     private UserEntity createdBy;
 
     /**
-     * Relation between the subject and the exam many to one relation between
-     * subject and exam where multiple subjects are part of the one exam Admin
-     * can create multiple exams
+     * FIX: Was @ManyToOne → single subject.
+     * Now @ManyToMany → one exam covers multiple subjects.
+     *
+     * Join table: exam_subjects
+     *   exam_id     FK → exams.exam_id
+     *   subject_id  FK → subjects.subject_id
      */
-    @ManyToOne
-    @JoinColumn(name = "subject_id", nullable = false)
-    private SubjectEntity subject;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "exam_subjects",
+            joinColumns = @JoinColumn(name = "exam_id"),
+            inverseJoinColumns = @JoinColumn(name = "subject_id")
+    )
+    @Builder.Default
+    private List<SubjectEntity> subjects = new ArrayList<>();
 }
