@@ -18,7 +18,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -132,6 +131,7 @@ public class AdminService {
      */
     public List<AnswersheetEntity> uploadAnswerSheets(
             String examId,
+            String subjectId,
             List<String> studentIds,
             List<MultipartFile> files,
             String adminId
@@ -142,6 +142,14 @@ public class AdminService {
 
         UserEntity admin = userRepository.findById(adminId)
                 .orElseThrow(() -> new BadRequestException("ADMIN_NOT_EXISTS"));
+
+        SubjectEntity subject = subjectRepository.findById(subjectId)  // ← ADD THIS
+                .orElseThrow(() -> new BadRequestException("SUBJECT_NOT_FOUND"));
+
+        // verify subject belongs to this exam
+        if (!exam.getSubjects().contains(subject)) {              // ← ADD THIS
+            throw new BadRequestException("SUBJECT_NOT_IN_EXAM");
+        }
 
         if (files.size() != studentIds.size()) {
             throw new BadRequestException("FILE_STUDENT_COUNT_MISMATCH");
@@ -180,6 +188,7 @@ public class AdminService {
 
                 AnswersheetEntity answersheet = new AnswersheetEntity();
                 answersheet.setExam(exam);
+                answersheet.setSubject(subject);
                 answersheet.setFilePath(pdfPath);
                 answersheet.setFileType("PDF");
                 answersheet.setStudent(student);

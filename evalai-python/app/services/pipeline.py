@@ -54,13 +54,11 @@ def process_answer_sheet_sync(request_data: dict):
     context_payload = {
         "exam_id": context.get("exam_id"),
         "exam_name": context.get("exam_name"),
-        "course_id": context.get("course_id"),
-        "course_name": context.get("course_name"),
-        "subject_code": context.get("subject_code"),
-        "subject_name": context.get("subject_name"),
         "academic_year": context.get("academic_year"),
         "question_paper_id": context.get("question_paper_id"),
-        "question_paper_set": context.get("set_label")
+        "question_paper_set": context.get("question_paper_set"),
+        "subject_codes": context.get("subject_codes"),
+        "subject_names": context.get("subject_names"),
     }
 
     student_payload = {
@@ -95,7 +93,7 @@ def process_answer_sheet_sync(request_data: dict):
         model_answer = q["model_answer_text"]
         question_text = q["question_text"]
         key_concepts = q.get("key_concepts", [])
-        subject_code = context_payload["subject_code"] or ""
+        subject_code = context_payload["subject_codes"] or ""
 
         # FAILED path — insufficient answer
         if not is_text_sufficient(student_answer):
@@ -128,7 +126,7 @@ def process_answer_sheet_sync(request_data: dict):
                 "sub_question_id": q["sub_question_id"],
                 "sub_question_label": q["sub_question_label"],
                 "question_number": q.get("question_number", 0),
-                "subject_code": subject_code,
+                "subject_codes": subject_code,
                 "status": "FAILED",
                 "failure_reason": "NO_TEXT_DETECTED",
                 "extracted_text": student_answer,
@@ -168,7 +166,7 @@ def process_answer_sheet_sync(request_data: dict):
                 "sub_question_id": q["sub_question_id"],
                 "sub_question_label": q["sub_question_label"],  # ✅
                 "question_number": q.get("question_number", 0), # ✅
-                "subject_code": subject_code,                   # ✅
+                "subject_codes": subject_code,                   # ✅
                 "status": "COMPLETED",
                 "failure_reason": None,
                 "extracted_text": student_answer,
@@ -186,7 +184,7 @@ def process_answer_sheet_sync(request_data: dict):
                 "sub_question_id": q["sub_question_id"],
                 "sub_question_label": q["sub_question_label"],
                 "question_number": q.get("question_number", 0),
-                "subject_code": subject_code,
+                "subject_codes": subject_code,
                 "status": "FAILED",
                 "failure_reason": "PROCESSING_ERROR",
                 "extracted_text": student_answer,
@@ -225,20 +223,25 @@ def process_answer_sheet_sync(request_data: dict):
     logger.info(f"[PAYLOAD READY] status={overall_status} | completed={completed} | failed={failed}")
 
     # STEP 11 — Callback to Java
+    CALLBACK_SECRET = os.getenv("PIPELINE_CALLBACK_SECRET", "StUfr4l3Bm+xWJ+vz+9kG/cKhwlEFQ3fOEa2Fx4Sx7c=")
     if callback_url:
         try:
             with httpx.Client(timeout=30.0) as client:
                 for attempt in range(3):
                     try:
-                        res = client.post(callback_url, json=payload)
-                        logger.info(f"[CALLBACK] Attempt {attempt+1} | status={res.status_code}")
+                        res = client.post(
+                            callback_url,
+                            json=payload,
+                            headers={"X-Callback-Secret": CALLBACK_SECRET}  # ← ADD THIS
+                        )
+                        logger.info(f"[CALLBACK] Attempt {attempt + 1} | status={res.status_code}")
                         if res.status_code == 200:
                             logger.info(f"[CALLBACK SUCCESS] task {task_id}")
                             break
                         else:
                             logger.error(f"[CALLBACK ERROR] {res.status_code} | {res.text}")
                     except Exception as retry_error:
-                        logger.error(f"[RETRY {attempt+1}] {retry_error}")
+                        logger.error(f"[RETRY {attempt + 1}] {retry_error}")
         except Exception as e:
             logger.error(f"[CALLBACK FAILED] {task_id}: {e}")
     else:

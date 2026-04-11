@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.evalai.main.entities.*;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,11 +30,6 @@ import com.evalai.main.dtos.request.QuestionRequestDTO;
 import com.evalai.main.dtos.request.SubQuestionRequestDTO;
 import com.evalai.main.dtos.response.GrievanceResponseDTO;
 import com.evalai.main.dtos.response.QuestionPaperResponseDTO;
-import com.evalai.main.entities.GrievanceEntity;
-import com.evalai.main.entities.ModelAnswerEntity;
-import com.evalai.main.entities.QuestionEntity;
-import com.evalai.main.entities.QuestionPaperEntity;
-import com.evalai.main.entities.SubQuestionEntity;
 import com.evalai.main.services.FacultyService;
 import com.evalai.main.utils.JwtUtils;
 
@@ -81,6 +77,7 @@ public class FacultyController {
 	public ResponseEntity<?> createQuestionPaper(
 			@RequestParam("title") String title,
 		    @RequestParam("examId") String examId,
+            @RequestParam("subjectId") String subjectId,
 		    @RequestParam("setLable") String setLable,
 			@RequestPart("file") MultipartFile file,
 			@RequestHeader("Authorization") String authHeader
@@ -92,9 +89,9 @@ public class FacultyController {
 	        request.setTitle(title);
 	        request.setExamId(examId);
 	        request.setSetLable(setLable);
-
+            request.setSubjectId(subjectId);
 			
-			QuestionPaperEntity saved = facultyService.createQuestionPaper(request, facultyId, file);
+			QuestionPaperEntity saved = facultyService.createQuestionPaper(request, facultyId,subjectId,file);
 			
 			QuestionPaperResponseDTO responseDTO = new QuestionPaperResponseDTO();
 			responseDTO.setQuestionPaperId(saved.getId());

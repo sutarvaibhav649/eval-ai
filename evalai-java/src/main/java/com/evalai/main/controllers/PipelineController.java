@@ -53,7 +53,7 @@ public class PipelineController {
             @Valid @RequestBody PipelineStartRequestDTO request
     ) throws BadRequestException {
         try {
-            int queued = pipelineService.startPipeline(request.getExamId());
+            int queued = pipelineService.startPipeline(request.getExamId(),request.getSubjectId());
 
             return ResponseEntity.ok(Map.of(
                     "message", "Pipeline started successfully",

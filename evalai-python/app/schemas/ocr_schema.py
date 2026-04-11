@@ -25,13 +25,11 @@ class FeedbackData(BaseModel):
 class ExamContext(BaseModel):
     exam_id: str
     exam_name: str
-    course_id: str
-    course_name: str
-    subject_code: str
-    subject_name: str
     academic_year: str
     question_paper_id: str
-    question_paper_set: str
+    question_paper_set: Optional[str] = None
+    subject_codes: str  # "CC401, CS301"
+    subject_names: str
 
 class OcrRequest(BaseModel):
     task_id: str

@@ -104,6 +104,7 @@ services:
       - UPLOAD_BASE_PATH=/app/uploads
       - EMBEDDING_MODEL=all-MiniLM-L6-v2
       - APP_PIPELINE_SKIP_CPP=true
+      - APP_PIPELINE_CALLBACK_SECRET=${PIPELINE_CALLBACK_SECRET}
     volumes:
       - evalai_uploads:/app/uploads
       - ./evalai-python/app:/app/app
@@ -135,6 +136,7 @@ services:
       - APP_GRPC_PORT=50051
       - APP_PIPELINE_SKIP_CPP=false
       - SERVER_PORT=8081
+      - APP_PIPELINE_CALLBACK_SECRET=${PIPELINE_CALLBACK_SECRET}
     volumes:
       - evalai_uploads:/app/uploads
     depends_on:

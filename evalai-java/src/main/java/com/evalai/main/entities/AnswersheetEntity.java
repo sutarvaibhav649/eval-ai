@@ -112,6 +112,10 @@ public class AnswersheetEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity student;
 
+    @ManyToOne
+    @JoinColumn(name = "subject_id", nullable = false)
+    private SubjectEntity subject;
+
     /**
      * This relation for between user and the answersheet where one user can
      * upload multiple answersheets

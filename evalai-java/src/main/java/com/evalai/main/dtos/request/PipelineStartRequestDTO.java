@@ -9,4 +9,7 @@ import lombok.Setter;
 public class PipelineStartRequestDTO {
 	@NotBlank(message = "Exam ID is required")
     private String examId;
+
+    @NotBlank(message = "Subject ID is required")
+    private String subjectId;
 }

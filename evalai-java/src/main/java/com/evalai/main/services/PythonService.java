@@ -77,15 +77,13 @@ public class PythonService {
 		
 		// context block
 		Map<String, Object> context = new HashMap<>();
-		context.put("exam_id", exam.getId());
-		context.put("exam_name", exam.getTitle());
-		context.put("course_id", subjects.isEmpty() ? "" : subjects.get(0).getId());
-		context.put("course_name", subjectNames);
-		context.put("subject_code", subjectCodes);
-		context.put("subject_name", subjectNames);
-		context.put("academic_year", exam.getAcademicYear());
-		context.put("question_paper_id", questionPaper.getId());
-		context.put("question_paper_set", questionPaper.getSetLable());
+        context.put("exam_id", exam.getId());
+        context.put("exam_name", exam.getTitle());
+        context.put("academic_year", exam.getAcademicYear());
+        context.put("question_paper_id", questionPaper.getId());
+        context.put("question_paper_set", questionPaper.getSetLable());
+        context.put("subject_codes", subjectCodes);
+        context.put("subject_names", subjectNames);
         
         // student block
         Map<String, Object> student = new HashMap<>();

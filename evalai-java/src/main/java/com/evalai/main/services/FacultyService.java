@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.evalai.main.dtos.response.EmbeddingResponseDTO;
+import com.evalai.main.entities.*;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -22,14 +23,6 @@ import com.evalai.main.dtos.request.ModelAnswerRequestDTO;
 import com.evalai.main.dtos.request.QuestionPaperRequestDTO;
 import com.evalai.main.dtos.request.QuestionRequestDTO;
 import com.evalai.main.dtos.request.SubQuestionRequestDTO;
-import com.evalai.main.entities.ExamEntity;
-import com.evalai.main.entities.GrievanceEntity;
-import com.evalai.main.entities.ModelAnswerEntity;
-import com.evalai.main.entities.QuestionEntity;
-import com.evalai.main.entities.QuestionPaperEntity;
-import com.evalai.main.entities.ResultEntity;
-import com.evalai.main.entities.SubQuestionEntity;
-import com.evalai.main.entities.UserEntity;
 import com.evalai.main.enums.GrievanceStatus;
 import com.evalai.main.enums.QuestionPaperStatus;
 import com.evalai.main.repositories.*;
@@ -61,6 +54,7 @@ public class FacultyService {
     private final ExamRepository examRepository;
     private final UserRepository userRepository;
     private final RestTemplate restTemplate;
+    private final SubjectRepository subjectRepository;
 
     @Value("${app.python.base-url}")
     private String pythonBaseUrl;
@@ -74,6 +68,7 @@ public class FacultyService {
     public QuestionPaperEntity createQuestionPaper(
             QuestionPaperRequestDTO requestDTO,
             String facultyId,
+            String subjectId,
             org.springframework.web.multipart.MultipartFile file
     ) throws BadRequestException {
 
@@ -95,12 +90,16 @@ public class FacultyService {
                     + requestDTO.getSetLable().replace(" ", "-") + ".pdf";
             Files.write(Paths.get(filePath), file.getBytes());
 
+            SubjectEntity subject = subjectRepository.findById(subjectId)
+                    .orElseThrow(()->new  BadRequestException("SUBJECT_DOES_NOT_EXISTS"));
+
             QuestionPaperEntity questionPaper = new QuestionPaperEntity();
             questionPaper.setExam(exam);
             questionPaper.setFaculty(faculty);
             questionPaper.setFilePath(filePath);
             questionPaper.setSetLable(requestDTO.getSetLable());
             questionPaper.setTitle(requestDTO.getTitle());
+            questionPaper.setSubject(subject);
             questionPaper.setStatus(QuestionPaperStatus.DRAFT);
 
             return questionPaperRepository.save(questionPaper);

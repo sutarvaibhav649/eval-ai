@@ -154,7 +154,7 @@ def extract_text_from_images(image_paths: List[str]) -> Tuple[str, float]:
     )
 
     results = {}
-    max_workers = min(6, len(image_paths))
+    max_workers = min(2, len(image_paths))
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_idx = {

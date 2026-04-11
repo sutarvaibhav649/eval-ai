@@ -62,7 +62,7 @@ public class PipelineWorkerService {
 
     public void processSingleAnswerSheet(String answerSheetId, String questionPaperId) {
 
-        AnswersheetEntity answerSheet = answerSheetRepository.findById(answerSheetId)
+        AnswersheetEntity answerSheet = answerSheetRepository.findByIdWithExamAndSubjects(answerSheetId)
                 .orElseThrow(() -> new RuntimeException("ANSWER_SHEET_NOT_FOUND: " + answerSheetId));
 
         // FIX: use self (proxy) so @Transactional fires on this method
@@ -322,10 +322,16 @@ public class PipelineWorkerService {
     public QuestionPaperEntity loadQuestionPaperWithAll(String questionPaperId) {
         QuestionPaperEntity questionPaper = questionPaperRepository
                 .findByIdWithQuestions(questionPaperId)
-                .orElseThrow(() -> new RuntimeException(
-                        "QUESTION_PAPER_NOT_FOUND: " + questionPaperId
-                ));
+                .orElseThrow(() -> new RuntimeException("NOT_FOUND"));
+
+        // Force load the subjects collection while the session is active
+        if (questionPaper.getExam() != null) {
+            Hibernate.initialize(questionPaper.getExam().getSubjects());
+        }
+
+        // Also initialize questions/subquestions as you were doing
         questionPaper.getQuestions().forEach(q -> Hibernate.initialize(q.getSubQuestions()));
+
         return questionPaper;
     }
 

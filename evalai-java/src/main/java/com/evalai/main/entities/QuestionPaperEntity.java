@@ -76,7 +76,7 @@ public class QuestionPaperEntity {
 	@UpdateTimestamp
 	private LocalDateTime updatedAt;
 
-	
+
 	@ManyToOne
 	@JoinColumn(name = "exam_id",nullable = false)
 	private ExamEntity exam;
@@ -88,4 +88,8 @@ public class QuestionPaperEntity {
 	@OneToMany(mappedBy = "questionPaper", fetch = FetchType.LAZY)
 	@JsonIgnore
 	private List<QuestionEntity> questions = new ArrayList<>();
+
+    @ManyToOne
+    @JoinColumn(name = "subject_id", nullable = false)
+    private SubjectEntity subject;
 }

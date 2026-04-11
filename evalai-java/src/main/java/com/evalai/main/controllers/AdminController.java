@@ -148,6 +148,7 @@ public class AdminController {
     @PostMapping(value = "/answer-sheets/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadAnswerSheets(
             @RequestParam("examId") String examId,
+            @RequestParam("subjectId") String subjectId,
             @RequestParam("studentIds") List<String> studentIds,
             @RequestParam("files") List<MultipartFile> files,
             @RequestHeader("Authorization") String authHeader
@@ -156,7 +157,7 @@ public class AdminController {
             String adminId = jwtUtils.extractUserId(authHeader.substring(7));
 
             List<AnswersheetEntity> saved = adminService.uploadAnswerSheets(
-                    examId, studentIds, files, adminId
+                    examId,subjectId, studentIds, files, adminId
             );
 
             Map<String, Object> response = new HashMap<>();

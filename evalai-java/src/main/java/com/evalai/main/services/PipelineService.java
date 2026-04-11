@@ -32,6 +32,7 @@ public class PipelineService {
     private final FeedbackRepository feedbackRepository;
     private final PipelineWorkerService pipelineWorkerService;
     private final ExecutorService executor;
+    private final SubjectRepository subjectRepository;
 
     @Value("${app.upload.base-path}")
     private String uploadBasePath;
@@ -41,19 +42,30 @@ public class PipelineService {
     /*-----------------------------------------------------------
                        TRIGGER PIPELINE
     ----------------------------------------------------------*/
-    public int startPipeline(String examId) throws BadRequestException {
+    public int startPipeline(String examId, String subjectId) throws BadRequestException {
 
         ExamEntity exam = examRepository.findById(examId)
                 .orElseThrow(() -> new BadRequestException("EXAM_NOT_FOUND"));
 
-        List<QuestionPaperEntity> papers = questionPaperRepository.findByExam(exam);
+        SubjectEntity subject = subjectRepository.findById(subjectId)
+                .orElseThrow(() -> new BadRequestException("SUBJECT_NOT_FOUND"));
+
+        // Verify subject belongs to this exam
+        if (!exam.getSubjects().contains(subject)) {
+            throw new BadRequestException("SUBJECT_NOT_IN_EXAM");
+        }
+
+        // Get question paper for this exam + subject
+        List<QuestionPaperEntity> papers = questionPaperRepository
+                .findByExamAndSubject(exam, subject);
         if (papers.isEmpty()) {
             throw new BadRequestException("NO_QUESTION_PAPER_FOUND");
         }
         QuestionPaperEntity questionPaper = papers.get(0);
 
+        // Get pending sheets for this exam + subject
         List<AnswersheetEntity> pendingSheets = answerSheetRepository
-                .findByExamAndEvaluationStatus(exam, EvaluationStatus.PENDING);
+                .findByExamAndSubjectAndEvaluationStatus(exam, subject, EvaluationStatus.PENDING);
 
         if (pendingSheets.isEmpty()) {
             throw new BadRequestException("NO_PENDING_SHEETS");
