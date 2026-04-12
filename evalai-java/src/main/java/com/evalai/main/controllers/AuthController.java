@@ -1,5 +1,6 @@
 package com.evalai.main.controllers;
 
+import com.evalai.main.dtos.ApiResponse;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,8 @@ import com.evalai.main.services.AuthService;
 import com.evalai.main.utils.JwtUtils;
 
 import jakarta.validation.Valid;
+
+import java.util.Map;
 
 /**
  * Controller class for handling authentication-related endpoints such as user
@@ -55,50 +58,32 @@ public class AuthController {
      * handles duplicate check + password hashing 3. Build and return
      * RegisterResponseDTO with saved user details
      *
-     * @param registerRequestDTO validated request body with name, email,
+     * @param dto validated request body with name, email,
      * password, department, role
      * @return 201 CREATED with user details on success 409 CONFLICT if email
      * already registered 500 INTERNAL_SERVER_ERROR on unexpected failure
      * @throws BadRequestException 
      */
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequestDTO registerRequestDTO) throws BadRequestException {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDTO dto) throws BadRequestException {
         try {
-            // Step 1 — Default role to STUDENT if not provided
-            if (registerRequestDTO.getRole() == null) {
-                registerRequestDTO.setRole(UserRole.STUDENT);
-            }
-
-            // Step 2 — Build UserEntity from request
-            UserEntity newUser = new UserEntity();
-            newUser.setEmail(registerRequestDTO.getEmail());
-            newUser.setName(registerRequestDTO.getName());
-            newUser.setPassword(registerRequestDTO.getPassword());
-            newUser.setDepartment(registerRequestDTO.getDepartment());
-            newUser.setRole(registerRequestDTO.getRole());
-
-            // Step 3 — Delegate to AuthService (duplicate check + password hashing inside)
-            UserEntity savedUser = authService.registerUser(newUser);
-
-            // Step 4 — Build response DTO from saved entity
-            RegisterResponseDTO response = new RegisterResponseDTO();
-            response.setId(savedUser.getId());
-            response.setName(savedUser.getName());
-            response.setEmail(savedUser.getEmail());
-            response.setDepartment(savedUser.getDepartment());
-            response.setRole(savedUser.getRole());
-            response.setIsActive(savedUser.getIsActive());
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch (RuntimeException e) {
-            // Step 5 — AuthService throws RuntimeException("USER_ALREADY_EXISTS") for duplicate email
-            if ("USER_ALREADY_EXISTS".equals(e.getMessage())) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body("An account with this email already exists");
-            }
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Registration failed: " + e.getMessage());
+            UserEntity saved = authService.registerUser(dto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                    ApiResponse.builder()
+                            .success(true)
+                            .message("User registered successfully")
+                            .data(Map.of(
+                                    "userId", saved.getId(),
+                                    "name", saved.getName(),
+                                    "email", saved.getEmail(),
+                                    "role", saved.getRole(),
+                                    "department", saved.getDepartment()
+                            ))
+                            .timestamp(System.currentTimeMillis())
+                            .build()
+            );
+        } catch (BadRequestException e) {
+            throw e;
         }
     }
 

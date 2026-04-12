@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 /**
  * DTO class for handling user registration requests. This class contains fields
  * that represent the necessary information for registering a new user, such as
@@ -43,4 +45,13 @@ public class RegisterRequestDTO {
 
     private UserRole role;
 
+    // ── Student-specific (required if role = STUDENT) ──────────────────
+    private String rollNo;
+    private String year;          // "First Year", "Second Year" etc.
+    private Integer semester;     // 1 to 8
+    private List<String> subjectIds;  // subjects to enroll in
+
+    // ── Faculty-specific (required if role = FACULTY) ──────────────────
+    private String designation;   // "Assistant Professor", "Professor"
+    private List<String> teachingSubjectIds; // subjects faculty teaches
 }
