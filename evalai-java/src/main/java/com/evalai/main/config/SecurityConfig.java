@@ -2,6 +2,7 @@ package com.evalai.main.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -45,18 +46,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Disable CSRF (standard for Stateless JWT APIs)
+                .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
-                // 2. Set Session Management to Stateless
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // 3. Define URL permissions
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**").permitAll() //login and response endpoints should be public
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/faculty/**").hasRole("FACULTY")
-                .requestMatchers("/student/**").hasRole("STUDENT")
-                .requestMatchers("/pipeline/callback").permitAll()
-                .anyRequest().authenticated() // Everything else needs a token
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/pipeline/callback").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/faculty/**").hasRole("FACULTY")
+                        .requestMatchers("/student/**").hasRole("STUDENT")
+                        .anyRequest().authenticated()
                 );
 
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
