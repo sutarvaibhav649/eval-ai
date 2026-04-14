@@ -3,7 +3,7 @@ export default function StatusBadge({ status }) {
         COMPLETED: "bg-green-100 text-green-800",
         PENDING: "bg-yellow-100 text-yellow-800",
         FAILED: "bg-red-100 text-red-800",
-        PROCESSING: "bg-indigo-100 text-indigo-800",
+        PROCESSING: "bg-indigo-100 text-indigo-800 animate-pulse",
         QUEUED: "bg-cyan-100 text-cyan-800",
     };
 
