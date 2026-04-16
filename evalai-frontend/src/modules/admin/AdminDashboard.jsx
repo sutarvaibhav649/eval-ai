@@ -1,31 +1,90 @@
 import { useEffect } from "react";
 import AdminLayout from "../../layouts/AdminLayout";
 import StatCard from "../../components/StatCard";
-import SearchBar from "../../components/SearchBar";
 import DataTable from "../../components/DataTable";
 import { usePipelineStore } from "../../store/pipeline.store";
+import { useExamStore } from "../../store/exam.store";
 
 export default function AdminDashboard() {
-    const { data, fetchStatus, loading } = usePipelineStore();
+    const { data, fetchStatus } = usePipelineStore();
+    const { exams, fetchExams, selectedExam, setSelectedExam } =
+        useExamStore();
 
+    // Fetch exams once
     useEffect(() => {
-        //  Hardcode for now (later dynamic)
-        fetchStatus("a76604b6-9531-442b-9b8b-1d42a82c771e");
+        fetchExams();
+    }, [fetchExams]);
+
+    // Polling with smart stop
+    useEffect(() => {
+        if (!selectedExam) return;
+
+        fetchStatus(selectedExam.id);
 
         const interval = setInterval(() => {
-            fetchStatus(examId);
+        // 🔥 Stop polling when completed
+        if (data && data.pending === 0) return;
+
+        fetchStatus(selectedExam.id);
         }, 5000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedExam, data, fetchStatus]);
 
-    if (loading) return <p>Loading...</p>;
+    // Table data
+    const tableData =
+        data?.students?.map((s) => ({
+        exam: selectedExam?.title || "-",
+        year: selectedExam?.academicYear || "-",
+        students: data?.totalStudents || 0,
+        evaluated: data?.completed || 0,
+        status: s.evaluationStatus,
+        })) || [];
+
+    // Progress safe calc
+    const progress =
+        data?.totalStudents > 0
+        ? (data.completed / data.totalStudents) * 100
+        : 0;
 
     return (
         <AdminLayout>
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
-        {/* STAT CARDS */}
+        {/* 🔥 EXAM SELECTOR */}
+        <div className="mb-6">
+            {exams.length === 0 ? (
+            <p className="text-sm text-gray-500">
+                No exams available
+            </p>
+            ) : (
+            <select
+                className="border px-3 py-2 rounded-md bg-white shadow-sm"
+                value={selectedExam?.id || ""}
+                onChange={(e) => {
+                const exam = exams.find(
+                    (ex) => ex.id === e.target.value
+                );
+                setSelectedExam(exam);
+                }}
+            >
+                {exams.map((exam) => (
+                <option key={exam.id} value={exam.id}>
+                    {exam.title} ({exam.academicYear})
+                </option>
+                ))}
+            </select>
+            )}
+        </div>
+
+        {/* 📘 SUBJECT */}
+        {selectedExam?.subjects?.length > 0 && (
+            <p className="text-sm text-gray-500 mb-4">
+            Subject: {selectedExam.subjects[0].name}
+            </p>
+        )}
+
+        {/* 🔥 STAT CARDS */}
         {data && (
             <div className="flex gap-6 mb-6">
             <StatCard
@@ -51,43 +110,28 @@ export default function AdminDashboard() {
             </div>
         )}
 
-        {/* SEARCH */}
-        <SearchBar />
-
-        {/*PROGRESS SECTION */}
+        {/* 📊 PROGRESS */}
         {data && (
-        <div className="bg-white p-4 rounded-xl shadow-md mb-6">
+            <div className="bg-white p-4 rounded-xl shadow-md mb-6">
             <h2 className="text-lg font-semibold mb-2">
-            Evaluation Progress
+                Evaluation Progress
             </h2>
 
             <p className="text-sm text-gray-600 mb-2">
-            {data.completed} / {data.totalStudents} Evaluated
+                {data.completed} / {data.totalStudents} Evaluated
             </p>
 
             <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
+                <div
                 className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                style={{
-                width: `${(data.completed / data.totalStudents) * 100}%`,
-                }}
-            />
+                style={{ width: `${progress}%` }}
+                />
             </div>
-        </div>
+            </div>
         )}
 
-        {/* TABLE */}
-        {data && (
-            <DataTable
-            data={data.students.map((s) => ({
-                exam: data.examId,
-                year: "2025",
-                students: data.totalStudents,
-                evaluated: data.completed,
-                status: s.evaluationStatus,
-            }))}
-            />
-        )}
+        {/* 📋 TABLE */}
+        {data && <DataTable data={tableData} />}
         </AdminLayout>
     );
 }
