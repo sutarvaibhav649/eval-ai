@@ -4,9 +4,12 @@ import com.evalai.main.dtos.*;
 import com.evalai.main.dtos.request.ExamRequestDTO;
 import com.evalai.main.dtos.request.SubjectRequestDTO;
 import com.evalai.main.dtos.response.ExamResponseDTO;
+import com.evalai.main.dtos.response.StudentFeedbackResponseDTO;
+import com.evalai.main.dtos.response.StudentResultResponseDTO;
 import com.evalai.main.dtos.response.SubjectResponseDTO;
 import com.evalai.main.entities.*;
 import com.evalai.main.enums.EvaluationStatus;
+import com.evalai.main.services.StudentService;
 import com.evalai.main.utils.BadRequestException;
 import com.evalai.main.services.AdminService;
 import com.evalai.main.utils.JwtUtils;
@@ -19,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +35,7 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private final AdminService adminService;
+    private final StudentService studentService;
     private final JwtUtils jwtUtils;
 
     /*-------------------------------------------------
@@ -236,5 +241,61 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to fetch status: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/exam")
+    public ResponseEntity<List<ExamResponseDTO>> getAllExams(){
+        List<ExamEntity> exams = adminService.getAllExams();
+
+        List<ExamResponseDTO> responseDTOS = new ArrayList<>();
+
+        for(ExamEntity e : exams){
+            List<ExamResponseDTO.SubjectInfo> subjectInfos = new ArrayList<>();
+            ExamResponseDTO responseDTO = new ExamResponseDTO();
+            SubjectEntity subject = new SubjectEntity();
+            ExamResponseDTO.SubjectInfo subjectInfo = new ExamResponseDTO.SubjectInfo();
+            responseDTO.setId(e.getId());
+            responseDTO.setTitle(e.getTitle());
+            subjectInfo.setSubjectId(e.getSubjects().getFirst().getId());
+            subjectInfo.setCode(e.getSubjects().getFirst().getCode());
+            subjectInfo.setName(e.getSubjects().getFirst().getName());
+            subjectInfo.setDepartment(e.getSubjects().getFirst().getDepartment());
+            subjectInfo.setSemester(e.getSubjects().getFirst().getSemester());
+            subjectInfos.add(subjectInfo);
+            responseDTO.setExamDate(e.getExamDate());
+            responseDTO.setDurationMinutes(e.getDuration());
+            responseDTO.setAcademicYear(e.getAcademicYear());
+            responseDTO.setTotalMarks(e.getTotalMarks());
+            responseDTO.setStatus(e.getStatus());
+            responseDTO.setGrievanceDeadline(e.getGrievanceDeadline());
+            responseDTO.setCreatedAt(e.getCreatedAt());
+            responseDTO.setSubjects(subjectInfos);
+            responseDTOS.add(responseDTO);
+        }
+
+
+        return new ResponseEntity<>(responseDTOS,HttpStatus.OK);
+    }
+
+    // ✅ Get result for ANY student
+    @GetMapping("/student/{studentId}/exam/{examId}/result")
+    public ResponseEntity<StudentResultResponseDTO> getStudentResult(
+            @PathVariable String studentId,
+            @PathVariable String examId
+    ) throws Exception {
+        return ResponseEntity.ok(
+                studentService.getResult(examId, studentId)
+        );
+    }
+
+    // ✅ Get feedback for ANY student
+    @GetMapping("/student/{studentId}/exam/{examId}/feedback")
+    public ResponseEntity<StudentFeedbackResponseDTO> getStudentFeedback(
+            @PathVariable String studentId,
+            @PathVariable String examId
+    ) throws Exception {
+        return ResponseEntity.ok(
+                studentService.getFeedback(examId, studentId)
+        );
     }
 }

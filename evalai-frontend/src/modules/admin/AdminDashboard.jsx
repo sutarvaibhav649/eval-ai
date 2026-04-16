@@ -34,6 +34,8 @@ export default function AdminDashboard() {
     // Table data
     const tableData =
         data?.students?.map((s) => ({
+        examId: selectedExam?.id,
+        examTitle: selectedExam?.title,
         exam: selectedExam?.title || "-",
         year: selectedExam?.academicYear || "-",
         students: data?.totalStudents || 0,

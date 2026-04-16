@@ -1,15 +1,38 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import AdminDashboard from "../modules/admin/AdminDashboard";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Login from "../modules/auth/Login.jsx";
+import ProtectedRoute from "./ProtectedRoute.jsx";
+import AdminRoutes from "../modules/admin/AdminRoutes.jsx";
 
-function AppRoutes() {
+export default function AppRoutes() {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+
     return (
-        <BrowserRouter>
         <Routes>
-            <Route path="/" element={<h1>Login Page</h1>} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            {/* DEFAULT */}
+            <Route
+                path="/"
+                element={
+                    token
+                        ? role === "ADMIN"
+                            ? <Navigate to="/admin" />
+                            : <Navigate to="/login" />
+                        : <Navigate to="/login" />
+                }
+            />
+
+            {/* LOGIN */}
+            <Route path="/login" element={<Login />} />
+
+            {/* ADMIN */}
+            <Route
+                path="/admin/*"
+                element={
+                    <ProtectedRoute role="ADMIN">
+                        <AdminRoutes />
+                    </ProtectedRoute>
+                }
+            />
         </Routes>
-        </BrowserRouter>
     );
 }
-
-export default AppRoutes;

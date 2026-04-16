@@ -2,6 +2,7 @@ package com.evalai.main.services;
 
 import com.evalai.main.dtos.request.ExamRequestDTO;
 import com.evalai.main.dtos.request.SubjectRequestDTO;
+import com.evalai.main.dtos.response.ExamResponseDTO;
 import com.evalai.main.entities.*;
 import com.evalai.main.enums.*;
 import com.evalai.main.utils.BadRequestException;
@@ -10,6 +11,7 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -234,6 +236,15 @@ public class AdminService {
 
     private void createDirectories(String path) throws IOException {
         Files.createDirectories(Paths.get(path));
+    }
+
+    /*========================================================================
+                                GET ALL EXAMS
+    =========================================================================*/
+    public List<ExamEntity> getAllExams(){
+        List<ExamEntity> exams = examRepository.findAll();
+
+        return exams;
     }
 
     private int splitPdfToImages(String pdfPath, String outputDir) throws IOException {
