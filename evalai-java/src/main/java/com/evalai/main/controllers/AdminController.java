@@ -13,6 +13,7 @@ import com.evalai.main.services.StudentService;
 import com.evalai.main.utils.BadRequestException;
 import com.evalai.main.services.AdminService;
 import com.evalai.main.utils.JwtUtils;
+import com.evalai.main.repositories.SubjectRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,16 +38,11 @@ public class AdminController {
     private final AdminService adminService;
     private final StudentService studentService;
     private final JwtUtils jwtUtils;
+    private final SubjectRepository subjectRepository;
 
     /*-------------------------------------------------
      *              SUBJECT
      -------------------------------------------------*/
-    /**
-     * Creates a new subject.
-     *
-     * @return 201 CREATED with subject details
-     *         409 CONFLICT if subject code already exists
-     */
     @PostMapping("/subjects")
     public ResponseEntity<?> createSubject(
             @Valid @RequestBody SubjectRequestDTO requestDTO,
@@ -61,7 +57,7 @@ public class AdminController {
             responseDTO.setName(saved.getName());
             responseDTO.setCode(saved.getCode());
             responseDTO.setCreatedAt(saved.getCreatedAt());
-            responseDTO.setDepartment(saved.getDepartment()); // FIX: was setName(getDepartment())
+            responseDTO.setDepartment(saved.getDepartment());
             responseDTO.setSemester(saved.getSemester());
 
             return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
@@ -76,19 +72,30 @@ public class AdminController {
         }
     }
 
+    /*-------------------------------------------------
+     *         GET ALL SUBJECTS  ← NEW ENDPOINT
+     -------------------------------------------------*/
+    @GetMapping("/subjects")
+    public ResponseEntity<List<SubjectResponseDTO>> getAllSubjects() {
+        List<SubjectEntity> subjects = subjectRepository.findAll();
+
+        List<SubjectResponseDTO> responseDTOs = subjects.stream().map(s -> {
+            SubjectResponseDTO dto = new SubjectResponseDTO();
+            dto.setSubjectId(s.getId());
+            dto.setName(s.getName());
+            dto.setCode(s.getCode());
+            dto.setDepartment(s.getDepartment());
+            dto.setSemester(s.getSemester());
+            dto.setCreatedAt(s.getCreatedAt());
+            return dto;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(responseDTOs);
+    }
+
     /*--------------------------------------------------------------
-                    EXAM
+     *                      EXAM
      -------------------------------------------------------------*/
-    /**
-     * Creates a new exam linked to one or more subjects.
-     *
-     * FIX: Response now returns a list of subjects (not single subjectName/Code)
-     * to match the ManyToMany exam-subject relation.
-     *
-     * @return 201 CREATED with exam details
-     *         404 NOT FOUND if any subject doesn't exist
-     *         409 CONFLICT if exam title already exists for this admin
-     */
     @PostMapping("/exam")
     public ResponseEntity<?> createExam(
             @Valid @RequestBody ExamRequestDTO requestDTO,
@@ -98,7 +105,6 @@ public class AdminController {
             String adminId = jwtUtils.extractUserId(authHeader.substring(7));
             ExamEntity saved = adminService.createExam(requestDTO, adminId);
 
-            // FIX: Build subjects list from saved entity
             List<ExamResponseDTO.SubjectInfo> subjectInfos = saved.getSubjects().stream()
                     .map(s -> {
                         ExamResponseDTO.SubjectInfo info = new ExamResponseDTO.SubjectInfo();
@@ -114,7 +120,7 @@ public class AdminController {
             ExamResponseDTO response = new ExamResponseDTO();
             response.setId(saved.getId());
             response.setTitle(saved.getTitle());
-            response.setSubjects(subjectInfos);         // FIX: was setSubjectName/setSubjectCode
+            response.setSubjects(subjectInfos);
             response.setAcademicYear(saved.getAcademicYear());
             response.setExamDate(saved.getExamDate());
             response.setTotalMarks(saved.getTotalMarks());
@@ -127,8 +133,7 @@ public class AdminController {
 
         } catch (Exception e) {
             if (e.getMessage() != null && e.getMessage().startsWith("SUBJECT_NOT_FOUND")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(e.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
             }
             if ("EXAM_ALREADY_EXISTS".equals(e.getMessage())) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -142,14 +147,6 @@ public class AdminController {
     /*-------------------------------------------------------
      *              Batch Upload
      -------------------------------------------------------*/
-    /**
-     * Accepts a batch of student answer sheet PDFs for a given exam.
-     *
-     * @return 201 CREATED with count of sheets queued
-     *         400 BAD REQUEST if file count doesn't match student count
-     *         400 BAD REQUEST if any file is not a PDF
-     *         404 NOT FOUND if exam or any student not found
-     */
     @PostMapping(value = "/answer-sheets/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadAnswerSheets(
             @RequestParam("examId") String examId,
@@ -162,7 +159,7 @@ public class AdminController {
             String adminId = jwtUtils.extractUserId(authHeader.substring(7));
 
             List<AnswersheetEntity> saved = adminService.uploadAnswerSheets(
-                    examId,subjectId, studentIds, files, adminId
+                    examId, subjectId, studentIds, files, adminId
             );
 
             Map<String, Object> response = new HashMap<>();
@@ -184,7 +181,6 @@ public class AdminController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("Number of files must match number of student IDs");
             }
-            // FIX: Added PDF validation error handling
             if ("ONLY_PDF_ALLOWED".equals(e.getMessage())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("Only PDF files are allowed for answer sheet upload");
@@ -198,11 +194,8 @@ public class AdminController {
     }
 
     /*---------------------------------------------------------
-                    EVALUATION STATUS
-    ----------------------------------------------------------*/
-    /**
-     * Returns evaluation progress for all students in an exam.
-     */
+     *                  EVALUATION STATUS
+     ----------------------------------------------------------*/
     @GetMapping("/evaluation/status")
     public ResponseEntity<?> getEvaluationStatus(
             @RequestParam("examId") String examId
@@ -243,25 +236,32 @@ public class AdminController {
         }
     }
 
+    /*---------------------------------------------------------
+     *                  GET ALL EXAMS
+     ----------------------------------------------------------*/
     @GetMapping("/exam")
-    public ResponseEntity<List<ExamResponseDTO>> getAllExams(){
+    public ResponseEntity<List<ExamResponseDTO>> getAllExams() {
         List<ExamEntity> exams = adminService.getAllExams();
 
         List<ExamResponseDTO> responseDTOS = new ArrayList<>();
 
-        for(ExamEntity e : exams){
+        for (ExamEntity e : exams) {
             List<ExamResponseDTO.SubjectInfo> subjectInfos = new ArrayList<>();
             ExamResponseDTO responseDTO = new ExamResponseDTO();
-            SubjectEntity subject = new SubjectEntity();
-            ExamResponseDTO.SubjectInfo subjectInfo = new ExamResponseDTO.SubjectInfo();
+
+            for (SubjectEntity s : e.getSubjects()) {
+                ExamResponseDTO.SubjectInfo subjectInfo = new ExamResponseDTO.SubjectInfo();
+                subjectInfo.setSubjectId(s.getId());
+                subjectInfo.setCode(s.getCode());
+                subjectInfo.setName(s.getName());
+                subjectInfo.setDepartment(s.getDepartment());
+                subjectInfo.setSemester(s.getSemester());
+                subjectInfos.add(subjectInfo);
+            }
+
             responseDTO.setId(e.getId());
             responseDTO.setTitle(e.getTitle());
-            subjectInfo.setSubjectId(e.getSubjects().getFirst().getId());
-            subjectInfo.setCode(e.getSubjects().getFirst().getCode());
-            subjectInfo.setName(e.getSubjects().getFirst().getName());
-            subjectInfo.setDepartment(e.getSubjects().getFirst().getDepartment());
-            subjectInfo.setSemester(e.getSubjects().getFirst().getSemester());
-            subjectInfos.add(subjectInfo);
+            responseDTO.setSubjects(subjectInfos);
             responseDTO.setExamDate(e.getExamDate());
             responseDTO.setDurationMinutes(e.getDuration());
             responseDTO.setAcademicYear(e.getAcademicYear());
@@ -269,33 +269,28 @@ public class AdminController {
             responseDTO.setStatus(e.getStatus());
             responseDTO.setGrievanceDeadline(e.getGrievanceDeadline());
             responseDTO.setCreatedAt(e.getCreatedAt());
-            responseDTO.setSubjects(subjectInfos);
             responseDTOS.add(responseDTO);
         }
 
-
-        return new ResponseEntity<>(responseDTOS,HttpStatus.OK);
+        return new ResponseEntity<>(responseDTOS, HttpStatus.OK);
     }
 
-    // ✅ Get result for ANY student
+    /*---------------------------------------------------------
+     *              STUDENT RESULT & FEEDBACK (ADMIN VIEW)
+     ----------------------------------------------------------*/
     @GetMapping("/student/{studentId}/exam/{examId}/result")
     public ResponseEntity<StudentResultResponseDTO> getStudentResult(
             @PathVariable String studentId,
             @PathVariable String examId
     ) throws Exception {
-        return ResponseEntity.ok(
-                studentService.getResult(examId, studentId)
-        );
+        return ResponseEntity.ok(studentService.getResult(examId, studentId));
     }
 
-    // ✅ Get feedback for ANY student
     @GetMapping("/student/{studentId}/exam/{examId}/feedback")
     public ResponseEntity<StudentFeedbackResponseDTO> getStudentFeedback(
             @PathVariable String studentId,
             @PathVariable String examId
     ) throws Exception {
-        return ResponseEntity.ok(
-                studentService.getFeedback(examId, studentId)
-        );
+        return ResponseEntity.ok(studentService.getFeedback(examId, studentId));
     }
 }

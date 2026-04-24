@@ -1,8 +1,10 @@
 .env
 *.env
 .env.*
+
 evalai-java/.env
 evalai-python/.env
+evalai-python/.env.example
 evalai-frontend/.env
 evalai-cpp/.env
 upload/
