@@ -33,6 +33,7 @@ public class AdminService {
     private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
     private final TaskLogsRepository taskLogsRepository;
+    private final PythonService pythonService;
 
     @Value("${app.upload.base-path}")
     private String uploadBasePath;
@@ -42,13 +43,15 @@ public class AdminService {
             AnswersheetRepository answersheetRepository,
             UserRepository userRepository,
             SubjectRepository subjectRepository,
-            TaskLogsRepository taskLogsRepository
+            TaskLogsRepository taskLogsRepository,
+            PythonService pythonService
     ) {
         this.examRepository = examRepository;
         this.subjectRepository = subjectRepository;
         this.userRepository = userRepository;
         this.answersheetRepository = answersheetRepository;
         this.taskLogsRepository = taskLogsRepository;
+        this.pythonService = pythonService;
     }
 
     /*------------------------------------------------
@@ -134,7 +137,6 @@ public class AdminService {
     public List<AnswersheetEntity> uploadAnswerSheets(
             String examId,
             String subjectId,
-            List<String> studentIds,
             List<MultipartFile> files,
             String adminId
     ) throws Exception {
@@ -153,10 +155,6 @@ public class AdminService {
             throw new BadRequestException("SUBJECT_NOT_IN_EXAM");
         }
 
-        if (files.size() != studentIds.size()) {
-            throw new BadRequestException("FILE_STUDENT_COUNT_MISMATCH");
-        }
-
         // FIX: Validate file types before processing any files
         for (MultipartFile file : files) {
             String contentType = file.getContentType();
@@ -167,16 +165,29 @@ public class AdminService {
 
         List<AnswersheetEntity> savedAnswersheets = new ArrayList<>();
 
-        for (int i = 0; i < files.size(); i++) {
-            MultipartFile file = files.get(i);
-            String studentId = studentIds.get(i);
-
-            UserEntity student = userRepository.findById(studentId)
-                    .orElseThrow(() -> new BadRequestException(
-                            "STUDENT_NOT_FOUND: " + studentId
-                    ));
+        for (MultipartFile file : files) {
+            String studentId = null;
 
             try {
+                String scanPdfDir = buildPath(uploadBasePath, "uploaded_pdf", examId, "qr_scan");
+                String scanRawImagesDir = buildPath(uploadBasePath, "raw_images", examId, "qr_scan");
+
+                createDirectories(scanPdfDir);
+                createDirectories(scanRawImagesDir);
+
+                String scanPdfPath = scanPdfDir + File.separator + UUID.randomUUID() + ".pdf";
+                Files.write(Paths.get(scanPdfPath), file.getBytes());
+
+                int pageCount = splitPdfToImages(scanPdfPath, scanRawImagesDir);
+                List<String> scanImagePaths = new ArrayList<>();
+                for (int page = 1; page <= pageCount; page++) {
+                    scanImagePaths.add(scanRawImagesDir + File.separator + "page_" + page + ".png");
+                }
+
+                studentId = pythonService.extractStudentIdFromQr(scanImagePaths);
+                UserEntity student = userRepository.findById(studentId)
+                        .orElseThrow(() -> new BadRequestException("STUDENT_NOT_FOUND: " + studentId));
+
                 String pdfDir = buildPath(uploadBasePath, "uploaded_pdf", examId, studentId);
                 String rawImagesDir = buildPath(uploadBasePath, "raw_images", examId, studentId);
 
@@ -185,8 +196,7 @@ public class AdminService {
 
                 String pdfPath = pdfDir + File.separator + "answer_sheet.pdf";
                 Files.write(Paths.get(pdfPath), file.getBytes());
-
-                int pageCount = splitPdfToImages(pdfPath, rawImagesDir);
+                splitPdfToImages(pdfPath, rawImagesDir);
 
                 AnswersheetEntity answersheet = new AnswersheetEntity();
                 answersheet.setExam(exam);
@@ -209,7 +219,7 @@ public class AdminService {
                 savedAnswersheets.add(savedAnswersheet);
 
             } catch (Exception e) {
-                throw new RuntimeException("UPLOAD_FAILED_FOR_STUDENT_" + studentId
+                throw new RuntimeException("UPLOAD_FAILED_FOR_STUDENT_" + (studentId != null ? studentId : "UNKNOWN_QR")
                         + ": " + e.getMessage());
             }
         }

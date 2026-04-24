@@ -64,3 +64,12 @@ class OcrResponse(BaseModel):
     failed_count: int
     completed_count: int
     extracted_answers: List[ExtractedAnswer]
+
+
+class QrScanRequest(BaseModel):
+    raw_image_paths: List[str]
+
+
+class QrScanResponse(BaseModel):
+    student_id: str
+    qr_payload: str
