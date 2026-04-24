@@ -7,18 +7,20 @@ export default function AppRoutes() {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
 
+    const getDefaultRedirect = () => {
+        if (!token) return "/login";
+        if (role === "ADMIN") return "/admin";
+        if (role === "FACULTY") return "/faculty";
+        if (role === "STUDENT") return "/student";
+        return "/login";
+    };
+
     return (
         <Routes>
-            {/* DEFAULT */}
+            {/* DEFAULT — redirect based on role */}
             <Route
                 path="/"
-                element={
-                    token
-                        ? role === "ADMIN"
-                            ? <Navigate to="/admin" />
-                            : <Navigate to="/login" />
-                        : <Navigate to="/login" />
-                }
+                element={<Navigate to={getDefaultRedirect()} />}
             />
 
             {/* LOGIN */}
@@ -31,6 +33,28 @@ export default function AppRoutes() {
                     <ProtectedRoute role="ADMIN">
                         <AdminRoutes />
                     </ProtectedRoute>
+                }
+            />
+
+            {/* UNAUTHORIZED */}
+            <Route
+                path="/unauthorized"
+                element={
+                    <div className="h-screen flex items-center justify-center">
+                        <p className="text-gray-500">
+                            You are not authorized to view this page.
+                        </p>
+                    </div>
+                }
+            />
+
+            {/* 404 */}
+            <Route
+                path="*"
+                element={
+                    <div className="h-screen flex items-center justify-center">
+                        <p className="text-gray-500">Page not found.</p>
+                    </div>
                 }
             />
         </Routes>
