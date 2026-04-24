@@ -119,6 +119,37 @@ public class PythonService {
             throw new RuntimeException("PYTHON_UNAVAILABLE: " + e.getMessage());
         }
 	}
+
+	/**
+	 * Extracts student id from QR code by delegating image analysis to Python service.
+	 * The Python endpoint scans the provided page images and returns the first decoded
+	 * student id.
+	 *
+	 * @param imagePaths ordered raw page image paths generated from uploaded PDF
+	 * @return extracted student id from QR payload
+	 */
+	public String extractStudentIdFromQr(List<String> imagePaths) {
+		if (imagePaths == null || imagePaths.isEmpty()) {
+			throw new RuntimeException("QR_SCAN_FAILED: No images provided");
+		}
+
+		Map<String, Object> payload = new HashMap<>();
+		payload.put("raw_image_paths", imagePaths);
+
+		String url = pythonBaseUrl + "/ocr/scan-qr";
+		try {
+			ResponseEntity<Map> response = restTemplate.postForEntity(url, payload, Map.class);
+			if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+				Object studentId = response.getBody().get("student_id");
+				if (studentId != null && !studentId.toString().isBlank()) {
+					return studentId.toString().trim();
+				}
+			}
+			throw new RuntimeException("QR_SCAN_FAILED: Invalid response from Python");
+		} catch (Exception e) {
+			throw new RuntimeException("QR_SCAN_FAILED: " + e.getMessage());
+		}
+	}
 	
 	/**
      * Builds the questions payload for the OCR request.

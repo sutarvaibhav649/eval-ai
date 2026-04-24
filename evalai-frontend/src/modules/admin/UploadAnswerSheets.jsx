@@ -7,7 +7,7 @@ export default function UploadAnswerSheets() {
     const [exams, setExams] = useState([]);
     const [selectedExam, setSelectedExam] = useState(null);
     const [selectedSubjectId, setSelectedSubjectId] = useState("");
-    const [rows, setRows] = useState([]); // [{file, studentId}]
+    const [rows, setRows] = useState([]); // [{file}]
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(null);
     const [error, setError] = useState(null);
@@ -29,15 +29,9 @@ export default function UploadAnswerSheets() {
 
     const handleFilesChange = (e) => {
         const files = Array.from(e.target.files);
-        setRows(files.map((file) => ({ file, studentId: "" })));
+        setRows(files.map((file) => ({ file })));
         setError(null);
         setSuccess(null);
-    };
-
-    const handleStudentIdChange = (index, value) => {
-        setRows((prev) =>
-            prev.map((row, i) => (i === index ? { ...row, studentId: value } : row))
-        );
     };
 
     const removeRow = (index) => {
@@ -57,11 +51,6 @@ export default function UploadAnswerSheets() {
             setError("Please upload at least one answer sheet.");
             return;
         }
-        const emptyIds = rows.some((r) => !r.studentId.trim());
-        if (emptyIds) {
-            setError("Please enter a student ID for every file.");
-            return;
-        }
 
         setLoading(true);
         setError(null);
@@ -72,7 +61,6 @@ export default function UploadAnswerSheets() {
             formData.append("examId", selectedExam.id);
             formData.append("subjectId", selectedSubjectId);
             rows.forEach((row) => {
-                formData.append("studentIds", row.studentId.trim());
                 formData.append("files", row.file);
             });
 
@@ -96,7 +84,7 @@ export default function UploadAnswerSheets() {
             <div className="max-w-3xl">
                 <h1 className="text-2xl font-bold mb-1">Upload Answer Sheets</h1>
                 <p className="text-sm text-gray-500 mb-6">
-                    Upload student answer sheet PDFs in bulk. Each file must be matched to a student ID.
+                    Upload student answer sheet PDFs in bulk. Student ID will be auto-read from QR code.
                 </p>
 
                 {success && (
@@ -164,7 +152,7 @@ export default function UploadAnswerSheets() {
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                         />
                         <p className="text-xs text-gray-400 mt-1">
-                            Only PDF files accepted. Each file = one student's answer sheet.
+                            Only PDF files accepted. Include a QR code containing student_id on the answer sheet.
                         </p>
                     </div>
 
@@ -172,7 +160,7 @@ export default function UploadAnswerSheets() {
                     {rows.length > 0 && (
                         <div>
                             <p className="text-sm font-medium text-gray-700 mb-2">
-                                Enter Student ID for each file
+                                Files selected for upload
                             </p>
                             <div className="rounded-lg border border-gray-200 overflow-hidden">
                                 <table className="w-full text-sm">
@@ -181,9 +169,6 @@ export default function UploadAnswerSheets() {
                                             <th className="text-left px-4 py-2 font-medium">#</th>
                                             <th className="text-left px-4 py-2 font-medium">
                                                 File Name
-                                            </th>
-                                            <th className="text-left px-4 py-2 font-medium">
-                                                Student ID
                                             </th>
                                             <th className="px-4 py-2"></th>
                                         </tr>
@@ -199,20 +184,6 @@ export default function UploadAnswerSheets() {
                                                 </td>
                                                 <td className="px-4 py-2 text-gray-700 max-w-[180px] truncate">
                                                     {row.file.name}
-                                                </td>
-                                                <td className="px-4 py-2">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Enter student ID"
-                                                        value={row.studentId}
-                                                        onChange={(e) =>
-                                                            handleStudentIdChange(
-                                                                index,
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        className="border border-gray-200 rounded-md px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                                                    />
                                                 </td>
                                                 <td className="px-4 py-2">
                                                     <button

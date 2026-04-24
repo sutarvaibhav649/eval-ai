@@ -151,7 +151,6 @@ public class AdminController {
     public ResponseEntity<?> uploadAnswerSheets(
             @RequestParam("examId") String examId,
             @RequestParam("subjectId") String subjectId,
-            @RequestParam("studentIds") List<String> studentIds,
             @RequestParam("files") List<MultipartFile> files,
             @RequestHeader("Authorization") String authHeader
     ) {
@@ -159,7 +158,7 @@ public class AdminController {
             String adminId = jwtUtils.extractUserId(authHeader.substring(7));
 
             List<AnswersheetEntity> saved = adminService.uploadAnswerSheets(
-                    examId, subjectId, studentIds, files, adminId
+                    examId, subjectId, files, adminId
             );
 
             Map<String, Object> response = new HashMap<>();
@@ -177,13 +176,13 @@ public class AdminController {
             if ("EXAM_NOT_FOUND".equals(e.getMessage())) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Exam not found");
             }
-            if ("FILE_STUDENT_COUNT_MISMATCH".equals(e.getMessage())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Number of files must match number of student IDs");
-            }
             if ("ONLY_PDF_ALLOWED".equals(e.getMessage())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("Only PDF files are allowed for answer sheet upload");
+            }
+            if (e.getMessage() != null && e.getMessage().contains("QR_SCAN_FAILED")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("QR scan failed. Ensure each uploaded PDF contains a readable student QR code.");
             }
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Upload failed: " + e.getMessage());
